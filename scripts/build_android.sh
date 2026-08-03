@@ -67,8 +67,11 @@ find build-android -name "libmain.so" -exec cp {} apk_workspace/lib/$ARCH/ \;
 find sdl_install/lib -name "libSDL2.so" -exec cp {} apk_workspace/lib/$ARCH/ \;
 cp "$TOOLCHAIN/sysroot/usr/lib/$TARGET/libc++_shared.so" apk_workspace/lib/$ARCH/
 
-# Игровые ассеты
+# Игровые ассеты (папка Common)
 cp -r build-android/targets/app/Common apk_workspace/assets/
+
+# Копируем любые файлы (.arc, .json, .txt) из корня targets/app в корень ассетов APK
+find build-android/targets/app -maxdepth 1 -type f ! -name "*.so" ! -name "*.stamp" -exec cp {} apk_workspace/assets/ \;
 
 # Java исходники SDL
 cp -r sdl_src/android-project/app/src/main/java/org apk_workspace/java_src/
@@ -102,6 +105,16 @@ public class MainActivity extends SDLActivity {
         File targetDir = getFilesDir();
         try {
             copyAssetFolder(getAssets(), "Common", targetDir.getAbsolutePath() + "/Common");
+            
+            String[] files = getAssets().list("");
+            if (files != null) {
+                for (String file : files) {
+                    if (file.endsWith(".arc") || file.endsWith(".json") || file.endsWith(".txt")) {
+                        copyAssetFile(getAssets(), file, targetDir.getAbsolutePath() + "/" + file);
+                    }
+                }
+            }
+            
             System.setProperty("user.dir", targetDir.getAbsolutePath());
         } catch (Exception e) {
             Log.e(TAG, "Failed to prepare assets", e);
