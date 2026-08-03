@@ -8,22 +8,21 @@ project(
     default_options: [
         'cpp_std=c++20',
         'warning_level=0',
-        'unity=on',  # merge source files per target
-        'unity_size=8',  # TODO: mess around with this
+        'unity=on',
+        'unity_size=8',
         'buildtype=debug',
         'force_fallback_for=[\'miniaudio\',\'stb\']',
-        'b_pch=true',  # precompiled headers
-        'default_library=static',  # static linkage to subprojects
-            # 'b_lto=true', # link-time optimisation (ThinLTO under clang+lld)
-            # 'b_ndebug=if-release', # drop assert() in --buildtype=release
+        'b_pch=true',
+        'default_library=static',
     ],
 )
 
-# there is a little hack for SDL2 on darwin... upgrading to SDL3 will make this irrelevant
-if host_machine.system() == 'darwin'
-    add_languages('objc', native: false)
+if host_machine.system() == 'android' or get_option('renderer') == 'gles'
+    meson.override_dependency('glew', declare_dependency())
+    meson.override_dependency('gl', declare_dependency())
+    meson.override_dependency('glu', declare_dependency())
 endif
-# This makes sure unity builds work on MSVC
+
 if meson.get_compiler('cpp').get_id() == 'msvc'
     add_project_arguments('/bigobj', language: 'cpp')
 endif
@@ -38,12 +37,9 @@ global_cpp_defs = [
     '-DSPLIT_SAVES',
     '-D_LARGE_WORLDS',
     '-D_EXTENDED_ACHIEVEMENTS',
-    '-DMULTITHREAD_ENABLE',  # always-on threading flag (formerly in App_Defines.h)
+    '-DMULTITHREAD_ENABLE',
 ]
 
-# Debug-only defines: keep for debug + debugoptimized so iteration is unchanged.
-# --buildtype=release strips them so shipping builds don't carry debug logging,
-# debug menu UI, or assert-driven sanity checks.
 if get_option('buildtype') in ['debug', 'debugoptimized']
     global_cpp_defs += [
         '-D_DEBUG',
@@ -98,7 +94,7 @@ subdir('targets/platform')
 
 # MARK: platform configuration
 
-if host_machine.system() in ['linux', 'windows', 'darwin']
+if host_machine.system() in ['linux', 'windows', 'darwin', 'android']
     platform_fs_dep = platform_fs_std_dep
     platform_game_dep = platform_game_stub_dep
     platform_input_dep = platform_input_sdl2_dep
@@ -108,9 +104,13 @@ if host_machine.system() in ['linux', 'windows', 'darwin']
     platform_renderer_dep = platform_renderer_gl_dep
     platform_sound_dep = platform_sound_miniaudio_dep
     platform_storage_dep = platform_storage_stub_dep
-    platform_thread_dep = platform_thread_dep  # standardized backend (for now)
+    platform_thread_dep = platform_thread_dep
 
-    app_platform_sources = files('targets/app/desktop/main.cpp')
+    if host_machine.system() == 'android'
+        app_platform_sources = files('targets/app/android/sdl_main_bridge.cpp')
+    else
+        app_platform_sources = files('targets/app/desktop/main.cpp')
+    endif
 endif
 
 subdir('targets/resources')

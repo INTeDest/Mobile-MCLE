@@ -31,17 +31,30 @@ app_dependencies += [
     platform_thread_dep,
 ]
 
-app = shared_library(
-    'main',
-    app_common_sources + app_platform_sources + files('android/sdl_main_bridge.cpp') + localisation[1],
-    include_directories: include_directories('..'),
-    dependencies: app_dependencies,
-    cpp_args: global_cpp_args + global_cpp_defs,
-    link_args: app_link_args,
-    install: true,
-    install_dir: '',
-    name_prefix: 'lib'
-)
+if host_machine.system() == 'android'
+    app = shared_library(
+        'main',
+        app_common_sources + app_platform_sources + localisation[1],
+        include_directories: include_directories('..'),
+        dependencies: app_dependencies,
+        cpp_args: global_cpp_args + global_cpp_defs,
+        link_args: app_link_args,
+        install: true,
+        install_dir: '',
+        name_prefix: 'lib'
+    )
+else
+    app = executable(
+        'Minecraft.Client',
+        app_common_sources + app_platform_sources + localisation[1],
+        include_directories: include_directories('..'),
+        dependencies: app_dependencies,
+        cpp_args: global_cpp_args + global_cpp_defs,
+        link_args: app_link_args,
+        install: true,
+        install_dir: '',
+    )
+endif
 
 custom_target(
     'copy_assets_to_app',
