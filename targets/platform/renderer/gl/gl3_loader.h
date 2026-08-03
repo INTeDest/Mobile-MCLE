@@ -73,6 +73,31 @@
 #define glActiveTexture gdraw_ptr_glActiveTexture
 #define glBlendEquation gdraw_ptr_glBlendEquation
 #define glBlendFuncSeparate gdraw_ptr_glBlendFuncSeparate
+
+// --- FBO & RBO & Advanced Texturing (GLES3 Core) Extensions Isolation ---
+#define glBindAttribLocation gdraw_ptr_glBindAttribLocation
+#define glGenRenderbuffers gdraw_ptr_glGenRenderbuffers
+#define glDeleteRenderbuffers gdraw_ptr_glDeleteRenderbuffers
+#define glBindRenderbuffer gdraw_ptr_glBindRenderbuffer
+#define glRenderbufferStorage gdraw_ptr_glRenderbufferStorage
+#define glGenFramebuffers gdraw_ptr_glGenFramebuffers
+#define glDeleteFramebuffers gdraw_ptr_glDeleteFramebuffers
+#define glBindFramebuffer gdraw_ptr_glBindFramebuffer
+#define glCheckFramebufferStatus gdraw_ptr_glCheckFramebufferStatus
+#define glFramebufferRenderbuffer gdraw_ptr_glFramebufferRenderbuffer
+#define glFramebufferTexture2D gdraw_ptr_glFramebufferTexture2D
+#define glGenerateMipmap gdraw_ptr_glGenerateMipmap
+#define glBlitFramebuffer gdraw_ptr_glBlitFramebuffer
+#define glRenderbufferStorageMultisample gdraw_ptr_glRenderbufferStorageMultisample
+#define glCompressedTexImage2D gdraw_ptr_glCompressedTexImage2D
+#define glCompressedTexSubImage2D gdraw_ptr_glCompressedTexSubImage2D
+#define glGenQueries gdraw_ptr_glGenQueries
+#define glDeleteQueries gdraw_ptr_glDeleteQueries
+#define glBeginQuery gdraw_ptr_glBeginQuery
+#define glEndQuery gdraw_ptr_glEndQuery
+#define glGetQueryiv gdraw_ptr_glGetQueryiv
+#define glGetQueryObjectuiv gdraw_ptr_glGetQueryObjectuiv
+#define glGetQueryObjectiv gdraw_ptr_glGetQueryObjectiv
 #endif
 
 #ifdef __cplusplus
