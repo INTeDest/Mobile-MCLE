@@ -1,3 +1,4 @@
+
 #define GDRAW_ASSERTS
 
 #include "gdraw.h"
@@ -6,8 +7,10 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
-// this is a really, really nasty hack to make this shit compile on macOS
-#if defined(__APPLE__) || defined (__linux__)
+
+#if defined(__ANDROID__) || defined(GLES) || defined(GDRAW_GLES)
+// На Android мы используем нативные функции GLES3. Нет нужды в SDL_opengl.h
+#else
 #include "SDL_opengl.h"
 
 typedef void(APIENTRY* PFNGLGENBUFFERSPROC)(GLsizei, GLuint*);
@@ -102,12 +105,58 @@ typedef void(APIENTRY* PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC)(GLenum, GLsizei,
 #define PFNGLFRAMEBUFFERTEXTURE2DEXTPROC PFNGLFRAMEBUFFERTEXTURE2DPROC
 #define PFNGLGENERATEMIPMAPEXTPROC PFNGLGENERATEMIPMAPPROC
 #define PFNGLBLITFRAMEBUFFEREXTPROC PFNGLBLITFRAMEBUFFERPROC
-#define PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC \
-    PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC
+#define PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC
 
-#else
-#include <GL/glew.h>
-#endif
+#define GDRAW_GL_EXTENSION_LIST                                                \
+    GLE(GenBuffers, "GenBuffersARB", GENBUFFERSARB)                            \
+    GLE(DeleteBuffers, "DeleteBuffersARB", DELETEBUFFERSARB)                   \
+    GLE(BindBuffer, "BindBufferARB", BINDBUFFERARB)                            \
+    GLE(BufferData, "BufferDataARB", BUFFERDATAARB)                            \
+    GLE(MapBuffer, "MapBufferARB", MAPBUFFERARB)                               \
+    GLE(UnmapBuffer, "UnmapBufferARB", UNMAPBUFFERARB)                         \
+    GLE(VertexAttribPointer, "VertexAttribPointerARB", VERTEXATTRIBPOINTERARB) \
+    GLE(EnableVertexAttribArray, "EnableVertexAttribArrayARB",                 \
+        ENABLEVERTEXATTRIBARRAYARB)                                            \
+    GLE(DisableVertexAttribArray, "DisableVertexAttribArrayARB",               \
+        DISABLEVERTEXATTRIBARRAYARB)                                           \
+    GLE(CreateShader, "CreateShaderObjectARB", CREATESHADEROBJECTARB)          \
+    GLE(DeleteShader, "DeleteObjectARB", DELETEOBJECTARB)                      \
+    GLE(ShaderSource, "ShaderSourceARB", SHADERSOURCEARB)                      \
+    GLE(CompileShader, "CompileShaderARB", COMPILESHADERARB)                   \
+    GLE(GetShaderiv, "GetObjectParameterivARB", GETOBJECTPARAMETERIVARB)       \
+    GLE(GetShaderInfoLog, "GetInfoLogARB", GETINFOLOGARB)                      \
+    GLE(CreateProgram, "CreateProgramObjectARB", CREATEPROGRAMOBJECTARB)       \
+    GLE(DeleteProgram, "DeleteObjectARB", DELETEOBJECTARB)                     \
+    GLE(AttachShader, "AttachObjectARB", ATTACHOBJECTARB)                      \
+    GLE(LinkProgram, "LinkProgramARB", LINKPROGRAMARB)                         \
+    GLE(GetUniformLocation, "GetUniformLocationARB", GETUNIFORMLOCATIONARB)    \
+    GLE(UseProgram, "UseProgramObjectARB", USEPROGRAMOBJECTARB)                \
+    GLE(GetProgramiv, "GetObjectParameterivARB", GETOBJECTPARAMETERIVARB)      \
+    GLE(GetProgramInfoLog, "GetInfoLogARB", GETINFOLOGARB)                     \
+    GLE(Uniform1i, "Uniform1iARB", UNIFORM1IARB)                               \
+    GLE(Uniform4f, "Uniform4fARB", UNIFORM4FARB)                               \
+    GLE(Uniform4fv, "Uniform4fvARB", UNIFORM4FVARB)                            \
+    GLE(BindAttribLocation, "BindAttribLocationARB", BINDATTRIBLOCATIONARB)    \
+    GLE(Uniform1f, "Uniform1fARB", UNIFORM1FARB)                               \
+    GLE(GenRenderbuffers, "GenRenderbuffersEXT", GENRENDERBUFFERSEXT)          \
+    GLE(DeleteRenderbuffers, "DeleteRenderbuffersEXT", DELETERENDERBUFFERSEXT) \
+    GLE(BindRenderbuffer, "BindRenderbufferEXT", BINDRENDERBUFFEREXT)          \
+    GLE(RenderbufferStorage, "RenderbufferStorageEXT", RENDERBUFFERSTORAGEEXT) \
+    GLE(GenFramebuffers, "GenFramebuffersEXT", GENFRAMEBUFFERSEXT)             \
+    GLE(DeleteFramebuffers, "DeleteFramebuffersEXT", DELETEFRAMEBUFFERSEXT)    \
+    GLE(BindFramebuffer, "BindFramebufferEXT", BINDFRAMEBUFFEREXT)             \
+    GLE(CheckFramebufferStatus, "CheckFramebufferStatusEXT",                   \
+        CHECKFRAMEBUFFERSTATUSEXT)                                             \
+    GLE(FramebufferRenderbuffer, "FramebufferRenderbufferEXT",                 \
+        FRAMEBUFFERRENDERBUFFEREXT)                                            \
+    GLE(FramebufferTexture2D, "FramebufferTexture2DEXT",                       \
+        FRAMEBUFFERTEXTURE2DEXT)                                               \
+    GLE(GenerateMipmap, "GenerateMipmapEXT", GENERATEMIPMAPEXT)                \
+    GLE(BlitFramebuffer, "BlitFramebufferEXT", BLITFRAMEBUFFEREXT)             \
+    GLE(RenderbufferStorageMultisample, "RenderbufferStorageMultisampleEXT",   \
+        RENDERBUFFERSTORAGEMULTISAMPLEEXT)
+#endif // Android/GLES check
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -142,105 +191,29 @@ void IggyDiscardVertexBufferCallback(void* owner, void* buf) {
 }
 #endif
 
-// static void* get_gl_proc(const char* name) {
-//     void* p = SDL_GL_GetProcAddress(name);
-//     if (!p) p = dlsym(RTLD_DEFAULT, name);
-//     if (!p) {
-//         char buf[256];
-//         strncpy(buf, name, sizeof(buf) - 1);
-//         buf[255] = '\0';
-//         char* ext = strstr(buf, "ARB");
-//         if (!ext) ext = strstr(buf, "EXT");
-//         if (ext && ext == buf + strlen(buf) - 3) {
-//             *ext = '\0';
-//             p = SDL_GL_GetProcAddress(buf);
-//             if (!p) p = dlsym(RTLD_DEFAULT, buf);
-//         }
-//     }
-//     return p;
-// }
-
-#define GDRAW_GL_EXTENSION_LIST                                                \
-    /*  identifier                      import procname */                     \
-    /* GL_ARB_vertex_buffer_object */                                          \
-    GLE(GenBuffers, "GenBuffersARB", GENBUFFERSARB)                            \
-    GLE(DeleteBuffers, "DeleteBuffersARB", DELETEBUFFERSARB)                   \
-    GLE(BindBuffer, "BindBufferARB", BINDBUFFERARB)                            \
-    GLE(BufferData, "BufferDataARB", BUFFERDATAARB)                            \
-    GLE(MapBuffer, "MapBufferARB", MAPBUFFERARB)                               \
-    GLE(UnmapBuffer, "UnmapBufferARB", UNMAPBUFFERARB)                         \
-    GLE(VertexAttribPointer, "VertexAttribPointerARB", VERTEXATTRIBPOINTERARB) \
-    GLE(EnableVertexAttribArray, "EnableVertexAttribArrayARB",                 \
-        ENABLEVERTEXATTRIBARRAYARB)                                            \
-    GLE(DisableVertexAttribArray, "DisableVertexAttribArrayARB",               \
-        DISABLEVERTEXATTRIBARRAYARB)                                           \
-    /* GL_ARB_shader_objects */                                                \
-    GLE(CreateShader, "CreateShaderObjectARB", CREATESHADEROBJECTARB)          \
-    GLE(DeleteShader, "DeleteObjectARB", DELETEOBJECTARB)                      \
-    GLE(ShaderSource, "ShaderSourceARB", SHADERSOURCEARB)                      \
-    GLE(CompileShader, "CompileShaderARB", COMPILESHADERARB)                   \
-    GLE(GetShaderiv, "GetObjectParameterivARB", GETOBJECTPARAMETERIVARB)       \
-    GLE(GetShaderInfoLog, "GetInfoLogARB", GETINFOLOGARB)                      \
-    GLE(CreateProgram, "CreateProgramObjectARB", CREATEPROGRAMOBJECTARB)       \
-    GLE(DeleteProgram, "DeleteObjectARB", DELETEOBJECTARB)                     \
-    GLE(AttachShader, "AttachObjectARB", ATTACHOBJECTARB)                      \
-    GLE(LinkProgram, "LinkProgramARB", LINKPROGRAMARB)                         \
-    GLE(GetUniformLocation, "GetUniformLocationARB", GETUNIFORMLOCATIONARB)    \
-    GLE(UseProgram, "UseProgramObjectARB", USEPROGRAMOBJECTARB)                \
-    GLE(GetProgramiv, "GetObjectParameterivARB", GETOBJECTPARAMETERIVARB)      \
-    GLE(GetProgramInfoLog, "GetInfoLogARB", GETINFOLOGARB)                     \
-    GLE(Uniform1i, "Uniform1iARB", UNIFORM1IARB)                               \
-    GLE(Uniform4f, "Uniform4fARB", UNIFORM4FARB)                               \
-    GLE(Uniform4fv, "Uniform4fvARB", UNIFORM4FVARB)                            \
-    /* GL_ARB_vertex_shader */                                                 \
-    GLE(BindAttribLocation, "BindAttribLocationARB", BINDATTRIBLOCATIONARB)    \
-    /* Missing from WGL but needed by shared code */                           \
-    GLE(Uniform1f, "Uniform1fARB", UNIFORM1FARB)                               \
-    /* GL_EXT_framebuffer_object */                                            \
-    GLE(GenRenderbuffers, "GenRenderbuffersEXT", GENRENDERBUFFERSEXT)          \
-    GLE(DeleteRenderbuffers, "DeleteRenderbuffersEXT", DELETERENDERBUFFERSEXT) \
-    GLE(BindRenderbuffer, "BindRenderbufferEXT", BINDRENDERBUFFEREXT)          \
-    GLE(RenderbufferStorage, "RenderbufferStorageEXT", RENDERBUFFERSTORAGEEXT) \
-    GLE(GenFramebuffers, "GenFramebuffersEXT", GENFRAMEBUFFERSEXT)             \
-    GLE(DeleteFramebuffers, "DeleteFramebuffersEXT", DELETEFRAMEBUFFERSEXT)    \
-    GLE(BindFramebuffer, "BindFramebufferEXT", BINDFRAMEBUFFEREXT)             \
-    GLE(CheckFramebufferStatus, "CheckFramebufferStatusEXT",                   \
-        CHECKFRAMEBUFFERSTATUSEXT)                                             \
-    GLE(FramebufferRenderbuffer, "FramebufferRenderbufferEXT",                 \
-        FRAMEBUFFERRENDERBUFFEREXT)                                            \
-    GLE(FramebufferTexture2D, "FramebufferTexture2DEXT",                       \
-        FRAMEBUFFERTEXTURE2DEXT)                                               \
-    GLE(GenerateMipmap, "GenerateMipmapEXT", GENERATEMIPMAPEXT)                \
-    /* GL_EXT_framebuffer_blit */                                              \
-    GLE(BlitFramebuffer, "BlitFramebufferEXT", BLITFRAMEBUFFEREXT)             \
-    /* GL_EXT_framebuffer_multisample */                                       \
-    GLE(RenderbufferStorageMultisample, "RenderbufferStorageMultisampleEXT",   \
-        RENDERBUFFERSTORAGEMULTISAMPLEEXT)                                     \
-    /* <end> */
-
 // Shared .inl
 #define gdraw_GLx_(id) gdraw_GL_##id
 #define GDRAW_GLx_(id) GDRAW_GL_##id
 #define GDRAW_SHADERS "gdraw_gl_shaders.inl"
 
-// GLhandleARB is void* but shader functions use GLuint values.
-// homework stolen from gdraw_gl_shared.inl.
 #define GDrawGLProgram GLuint
 typedef GLuint GLhandle;
 typedef gdraw_gl_resourcetype gdraw_resourcetype;
 
+#if !defined(__ANDROID__) && !defined(GLES) && !defined(GDRAW_GLES)
 #define GLE(id, import, procname) static PFNGL##procname##PROC gl##id;
 GDRAW_GL_EXTENSION_LIST
 #undef GLE
 
-typedef const GLubyte*(APIENTRY* PFNGLGETSTRINGIPROC_)(GLenum name,
-                                                       GLuint index);
+typedef const GLubyte*(APIENTRY* PFNGLGETSTRINGIPROC_)(GLenum name, GLuint index);
 static PFNGLGETSTRINGIPROC_ gdraw_glGetStringi = NULL;
 
 typedef void(APIENTRY* PFNGLGENVERTEXARRAYSPROC_)(GLsizei n, GLuint* arrays);
 typedef void(APIENTRY* PFNGLBINDVERTEXARRAYPROC_)(GLuint array);
 static PFNGLGENVERTEXARRAYSPROC_ gdraw_glGenVertexArrays = NULL;
 static PFNGLBINDVERTEXARRAYPROC_ gdraw_glBindVertexArray = NULL;
+#endif
+
 static GLuint gdraw_vao = 0;
 
 typedef void(APIENTRY* gdraw_vtxattrib_fn)(GLuint, GLint, GLenum, GLboolean,
@@ -265,8 +238,6 @@ static gdraw_shadersource_fn gdraw_real_shadersource = NULL;
 static gdraw_compileshader_fn gdraw_real_compileshader = NULL;
 static gdraw_linkprogram_fn gdraw_real_linkprogram = NULL;
 
-// some core reject p0
-
 typedef void(APIENTRY* gdraw_useprogram_fn)(GLuint);
 static gdraw_useprogram_fn gdraw_real_useprogram = NULL;
 static GLuint gdraw_null_program = 0;
@@ -280,15 +251,27 @@ typedef void(APIENTRY* gdraw_texsubimage2d_fn)(GLenum, GLint, GLint, GLint,
 static gdraw_teximage2d_fn gdraw_real_teximage2d = NULL;
 static gdraw_texsubimage2d_fn gdraw_real_texsubimage2d = NULL;
 
+#if !defined(__ANDROID__) && !defined(GLES) && !defined(GDRAW_GLES)
 #define TRY(ptr, arb, core)                       \
     do {                                          \
         void* _p = SDL_GL_GetProcAddress(core);   \
         if (!_p) _p = SDL_GL_GetProcAddress(arb); \
         *(void**)&(ptr) = _p;                     \
     } while (0)
+#endif
 
 static void load_extensions(void) {
-// gl_shared requires ts shit ugh
+#if defined(__ANDROID__) || defined(GLES) || defined(GDRAW_GLES)
+    gdraw_real_vtxattrib = glVertexAttribPointer;
+    gdraw_real_createshader = glCreateShader;
+    gdraw_real_shadersource = glShaderSource;
+    gdraw_real_compileshader = glCompileShader;
+    gdraw_real_linkprogram = glLinkProgram;
+    gdraw_real_teximage2d = glTexImage2D;
+    gdraw_real_texsubimage2d = glTexSubImage2D;
+    gdraw_real_useprogram = glUseProgram;
+    gdraw_real_drawelements = glDrawElements;
+#else
 #define GLE(id, import, procname) \
     gl##id = (PFNGL##procname##PROC)SDL_GL_GetProcAddress("gl" import);
     GDRAW_GL_EXTENSION_LIST
@@ -350,7 +333,6 @@ static void load_extensions(void) {
     TRY(glRenderbufferStorageMultisample, "glRenderbufferStorageMultisampleEXT",
         "glRenderbufferStorageMultisample");
 
-    // Save raw pointers before we #define over the names below
     gdraw_real_vtxattrib =
         (gdraw_vtxattrib_fn)SDL_GL_GetProcAddress("glVertexAttribPointer");
     gdraw_real_createshader =
@@ -381,15 +363,16 @@ static void load_extensions(void) {
         gdraw_glGenVertexArrays(1, &gdraw_vao);
         gdraw_glBindVertexArray(gdraw_vao);
     }
+#endif
 }
 
 #undef TRY
 
-// rebind vbo
-
 static void clear_renderstate_platform_specific(void) {
+#if !defined(__ANDROID__) && !defined(GLES) && !defined(GDRAW_GLES)
     if (gdraw_glBindVertexArray && gdraw_vao)
         gdraw_glBindVertexArray(gdraw_vao);
+#endif
 }
 
 static void error_msg_platform_specific(const char* msg) {
@@ -404,7 +387,6 @@ static void error_msg_platform_specific(const char* msg) {
 
 #define GDRAW_MULTISAMPLING
 
-// i wish i could improve this function
 #ifdef RR_BREAK
 #undef RR_BREAK
 #endif
@@ -413,7 +395,6 @@ static void error_msg_platform_specific(const char* msg) {
         fprintf(stderr, "[GDraw] GL error at %s:%d\n", __FILE__, __LINE__); \
     } while (0)
 
-// the magic number that tropical told me
 #define GDRAW_MAX_SHADERS 64
 static struct {
     GLuint handle;
@@ -469,7 +450,6 @@ static void gdraw_LinkProgramAndLog(GLuint program) {
 #undef glCreateShader
 #define glCreateShader gdraw_CreateShaderTracked
 
-// This is the part that turns the old ugly shaders to 330
 static char* gdraw_strreplace(char* src, const char* find, const char* rep) {
     char* result;
     char* pos;
@@ -536,7 +516,6 @@ static void gdraw_ShaderSourceUpgraded(GLuint shader, GLsizei count,
 
     int is_vert = (gdraw_get_shader_type(shader) == GL_VERTEX_SHADER);
 
-    // Strip any existing #version directive as i'll add our own
     {
         char* vp = strstr(src, "#version");
         if (vp) {
@@ -548,16 +527,13 @@ static void gdraw_ShaderSourceUpgraded(GLuint shader, GLsizei count,
         }
     }
 
-    // Texture built-ins
     src = gdraw_strreplace(src, "texture2DRect", "texture");
     src = gdraw_strreplace(src, "texture2D", "texture");
 
-    // Attribute -> in
     src = gdraw_strreplace(src, "attribute ", "in ");
     src = gdraw_strreplace(src, "attribute\t", "in\t");
     src = gdraw_strreplace(src, "attribute\n", "in\n");
 
-    // Varying -> out (vert) / in (frag)
     if (is_vert) {
         src = gdraw_strreplace(src, "varying ", "out ");
         src = gdraw_strreplace(src, "varying\t", "out\t");
@@ -571,8 +547,8 @@ static void gdraw_ShaderSourceUpgraded(GLuint shader, GLsizei count,
     }
 
     const char* header = is_vert
-                             ? "#version 330 core\n"
-                             : "#version 330 core\nout vec4 _gdraw_frag_out;\n";
+                             ? "#version 300 es\nprecision highp float;\n"
+                             : "#version 300 es\nprecision mediump float;\nout vec4 _gdraw_frag_out;\n";
     char* patched = (char*)malloc(strlen(header) + strlen(src) + 2);
     if (!patched) {
         free(src);
@@ -591,19 +567,36 @@ static void gdraw_ShaderSourceUpgraded(GLuint shader, GLsizei count,
 #undef glShaderSource
 #define glShaderSource gdraw_ShaderSourceUpgraded
 
-// Remap all the deprecated internal formats to their modern equivalents
-// (idk why but just the word "swizzle" is cracking me up)
 static void gdraw_apply_swizzle(GLenum internal_fmt) {
+#if defined(__ANDROID__) || defined(GLES) || defined(GDRAW_GLES)
+    if (internal_fmt == 0x1906 /* GL_ALPHA */ || internal_fmt == GL_RED) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_ZERO);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_ZERO);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_ZERO);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_RED);
+    } else if (internal_fmt == 0x1909 /* GL_LUMINANCE */) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_RED);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_RED);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_ONE);
+    } else if (internal_fmt == 0x190A /* GL_LUMINANCE_ALPHA */) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_RED);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_RED);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_GREEN);
+    }
+#else
     if (internal_fmt == 0x1906 /* GL_ALPHA */ || internal_fmt == GL_RED) {
         GLint sw[4] = {GL_ZERO, GL_ZERO, GL_ZERO, GL_RED};
-        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, sw);
+        glTexParameteriv(GL_TEXTURE_2D, 0x8E46 /*GL_TEXTURE_SWIZZLE_RGBA*/, sw);
     } else if (internal_fmt == 0x1909 /* GL_LUMINANCE */) {
         GLint sw[4] = {GL_RED, GL_RED, GL_RED, GL_ONE};
-        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, sw);
+        glTexParameteriv(GL_TEXTURE_2D, 0x8E46 /*GL_TEXTURE_SWIZZLE_RGBA*/, sw);
     } else if (internal_fmt == 0x190A /* GL_LUMINANCE_ALPHA */) {
         GLint sw[4] = {GL_RED, GL_RED, GL_RED, GL_GREEN};
-        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, sw);
+        glTexParameteriv(GL_TEXTURE_2D, 0x8E46 /*GL_TEXTURE_SWIZZLE_RGBA*/, sw);
     }
+#endif
 }
 
 static GLenum gdraw_remap_fmt(GLenum fmt) {
@@ -632,7 +625,6 @@ static GLenum gdraw_remap_fmt(GLenum fmt) {
 static void gdraw_TexImage2D(GLenum target, GLint level, GLint ifmt, GLsizei w,
                              GLsizei h, GLint border, GLenum fmt, GLenum type,
                              const void* data) {
-    // ES strictly requires explicitly sized formats & stuff
     if (ifmt == GL_RGBA && data == NULL) ifmt = GL_RGBA8;
 
     GLenum new_ifmt = gdraw_remap_fmt((GLenum)ifmt);
@@ -655,23 +647,23 @@ static void gdraw_TexSubImage2D(GLenum target, GLint level, GLint xoff,
 #undef glTexSubImage2D
 #define glTexSubImage2D gdraw_TexSubImage2D
 
-// vbo emu
 static void gdraw_ClientVertexAttribPointer(GLuint index, GLint size,
                                             GLenum type, GLboolean normalized,
                                             GLsizei stride,
                                             const void* pointer) {
+#if !defined(__ANDROID__) && !defined(GLES) && !defined(GDRAW_GLES)
     if (gdraw_glBindVertexArray && gdraw_vao) {
         GLint current_vao = 0;
-        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &current_vao);
+        glGetIntegerv(0x85B5 /*GL_VERTEX_ARRAY_BINDING*/, &current_vao);
         if ((GLuint)current_vao != gdraw_vao)
             gdraw_glBindVertexArray(gdraw_vao);
     }
+#endif
 
     GLint current_vbo = 0;
     glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &current_vbo);
 
     if (current_vbo != 0 && current_vbo != (GLint)gdraw_screenvbo) {
-        // no touchies
         gdraw_real_vtxattrib(index, size, type, normalized, stride, pointer);
         return;
     }
@@ -710,7 +702,6 @@ static void gdraw_ClientVertexAttribPointer(GLuint index, GLint size,
 #undef glVertexAttribPointer
 #define glVertexAttribPointer gdraw_ClientVertexAttribPointer
 
-// fake ibo
 static void hooked_glDrawElements(GLenum mode, GLsizei count, GLenum type,
                                   const void* indices) {
     GLint current_ibo = 0;
@@ -734,14 +725,13 @@ static void hooked_glDrawElements(GLenum mode, GLsizei count, GLenum type,
 
 #define glDrawElements hooked_glDrawElements
 
-// dummy shader for glUseProgram(0) safety
 static void gdraw_UseProgramSafe(GLuint program) {
     if (!program) {
         if (!gdraw_null_program && gdraw_real_useprogram) {
             const char* vs =
-                "#version 330 core\nvoid main(){gl_Position=vec4(0);}";
+                "#version 300 es\nvoid main(){gl_Position=vec4(0.0);}";
             const char* fs =
-                "#version 330 core\nout vec4 c;\nvoid main(){c=vec4(0);}";
+                "#version 300 es\nprecision mediump float;\nout vec4 c;\nvoid main(){c=vec4(0.0);}";
             GLuint v = gdraw_real_createshader(GL_VERTEX_SHADER);
             GLuint f = gdraw_real_createshader(GL_FRAGMENT_SHADER);
             gdraw_real_shadersource(v, 1, &vs, NULL);
@@ -775,25 +765,24 @@ static void gdraw_FramebufferRenderbufferSafe(GLenum target, GLenum attachment,
 
     if (attachment == GL_DEPTH_ATTACHMENT) {
         last_depth_rb = renderbuffer;
-        (glFramebufferRenderbuffer)(target, attachment, renderbuffertarget,
+        glFramebufferRenderbuffer(target, attachment, renderbuffertarget,
                                     renderbuffer);
     } else if (attachment == GL_STENCIL_ATTACHMENT) {
         if (renderbuffer == last_depth_rb && renderbuffer != 0) {
-            // If identical, bind as packed depth-stencil to satisfy strict GLES
-            // ^ how greedy -n-
-            (glFramebufferRenderbuffer)(
+            glFramebufferRenderbuffer(
                 target, 0x821A /* GL_DEPTH_STENCIL_ATTACHMENT */,
                 renderbuffertarget, renderbuffer);
         } else {
-            (glFramebufferRenderbuffer)(target, attachment, renderbuffertarget,
+            glFramebufferRenderbuffer(target, attachment, renderbuffertarget,
                                         renderbuffer);
         }
     } else {
-        (glFramebufferRenderbuffer)(target, attachment, renderbuffertarget,
+        glFramebufferRenderbuffer(target, attachment, renderbuffertarget,
                                     renderbuffer);
     }
 }
 #define glFramebufferRenderbuffer_SAFE gdraw_FramebufferRenderbufferSafe
+#undef glFramebufferRenderbuffer
 #define glFramebufferRenderbuffer glFramebufferRenderbuffer_SAFE
 
 #include "gdraw_gl_shared.inl"
@@ -802,6 +791,7 @@ static void gdraw_FramebufferRenderbufferSafe(GLenum target, GLenum attachment,
 #define glVertexAttribPointer gdraw_real_vtxattrib
 
 static int hasext_core(const char* name) {
+#if !defined(__ANDROID__) && !defined(GLES) && !defined(GDRAW_GLES)
     GLint n = 0;
     if (!gdraw_glGetStringi) return 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &n);
@@ -810,43 +800,43 @@ static int hasext_core(const char* name) {
             (const char*)gdraw_glGetStringi(GL_EXTENSIONS, (GLuint)i);
         if (e && strcmp(e, name) == 0) return 1;
     }
+#endif
     return 0;
 }
 
 static gdraw_draw_indexed_triangles* real_DrawIndexedTriangles = NULL;
 
 static void RADLINK hooked_DrawIndexedTriangles(GDrawRenderState* r,
-                                                GDrawPrimitive* prim,
+                                                GDrawPrimitive* p,
                                                 GDrawVertexBuffer* buf,
                                                 GDrawStats* stats) {
-    if (buf == NULL && prim != NULL && prim->vertices != NULL) {
+    if (buf == NULL && p != NULL && p->vertices != NULL) {
         size_t stride = 8;
-        if (prim->vertex_format == GDRAW_vformat_v2aa)
+        if (p->vertex_format == GDRAW_vformat_v2aa)
             stride = 16;
-        else if (prim->vertex_format == GDRAW_vformat_v2tc2)
+        else if (p->vertex_format == GDRAW_vformat_v2tc2)
             stride = 16;
-        else if (prim->vertex_format == GDRAW_vformat_ihud1)
+        else if (p->vertex_format == GDRAW_vformat_ihud1)
             stride = 20;
-        gdraw_expected_vbo_size = prim->num_vertices * stride;
+        gdraw_expected_vbo_size = p->num_vertices * stride;
     } else {
         gdraw_expected_vbo_size = 0;
     }
-    gdraw_screenvbo_base = NULL;  // Force VBO re-upload for each primitive
-    real_DrawIndexedTriangles(r, prim, buf, stats);
+    gdraw_screenvbo_base = NULL;
+    real_DrawIndexedTriangles(r, p, buf, stats);
 }
 
 static gdraw_filter_quad* real_FilterQuad = NULL;
 
 static void RADLINK hooked_FilterQuad(GDrawRenderState* r, S32 x0, S32 y0,
                                       S32 x1, S32 y1, GDrawStats* stats) {
-    gdraw_expected_vbo_size = 4 * 20;  // 4 vertices, max stride
+    gdraw_expected_vbo_size = 4 * 20;
     gdraw_screenvbo_base = NULL;
     real_FilterQuad(r, x0, y0, x1, y1, stats);
 }
 
 static gdraw_rendering_begin* real_RenderingBegin = NULL;
 
-// stupid hack
 static void RADLINK hooked_RenderingBegin(void) {
     if (real_RenderingBegin) real_RenderingBegin();
     glDisable(GL_DEPTH_TEST);
@@ -854,7 +844,6 @@ static void RADLINK hooked_RenderingBegin(void) {
     OPENGL_CHECK_SITE("hooked_RenderingBegin:post_state");
 }
 
-// Creating the context
 GDrawFunctions* gdraw_GL_CreateContext(S32 w, S32 h, S32 msaa_samples) {
     static const TextureFormatDesc tex_formats[] = {
         {IFT_FORMAT_rgba_8888, 1, 1, 4, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE},
@@ -892,13 +881,14 @@ GDrawFunctions* gdraw_GL_CreateContext(S32 w, S32 h, S32 msaa_samples) {
 
     load_extensions();
 
+#if !defined(__ANDROID__) && !defined(GLES) && !defined(GDRAW_GLES)
     if (gdraw_glBindVertexArray && gdraw_vao)
         gdraw_glBindVertexArray(gdraw_vao);
+#endif
 
     GDrawFunctions* funcs = create_context(w, h);
     if (!funcs) return NULL;
 
-    // hook the vtable entries for VBO reset and render state
     real_DrawIndexedTriangles = funcs->DrawIndexedTriangles;
     funcs->DrawIndexedTriangles = hooked_DrawIndexedTriangles;
 
@@ -910,7 +900,7 @@ GDrawFunctions* gdraw_GL_CreateContext(S32 w, S32 h, S32 msaa_samples) {
     funcs->ClearID = gdraw_ClearID;
 
     gdraw->tex_formats = tex_formats;
-    gdraw->has_mapbuffer = false;
+    gdraw->has_mapbuffer = true;
     gdraw->has_depth24 = true;
     gdraw->has_texture_max_level = true;
 
@@ -920,10 +910,12 @@ GDrawFunctions* gdraw_GL_CreateContext(S32 w, S32 h, S32 msaa_samples) {
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &n);
     gdraw->has_conditional_non_power_of_two = (n < 8192);
 
+#ifdef GDRAW_MULTISAMPLING
     if (msaa_samples > 1) {
         glGetIntegerv(GL_MAX_SAMPLES, &n);
         gdraw->multisampling = RR_MIN(msaa_samples, n);
     }
+#endif
 
     opengl_check();
     fprintf(stderr, "[GDraw] Context created successfully (%dx%d, msaa=%d)\n",
@@ -931,15 +923,15 @@ GDrawFunctions* gdraw_GL_CreateContext(S32 w, S32 h, S32 msaa_samples) {
     return funcs;
 }
 
-// Custom draw callbacks
 void gdraw_GL_BeginCustomDraw_4J(IggyCustomDrawCallbackRegion* region,
                                  F32* matrix) {
-    // rebind vbo
+#if !defined(__ANDROID__) && !defined(GLES) && !defined(GDRAW_GLES)
     if (gdraw_glBindVertexArray && gdraw_vao)
         gdraw_glBindVertexArray(gdraw_vao);
+#endif
     clear_renderstate();
     gdraw_GetObjectSpaceMatrix(matrix, region->o2w, gdraw->projection,
-                               depth_from_id(0), 0);
+                               depth_from_id(0), 1);
 }
 
 void gdraw_GL_CalculateCustomDraw_4J(IggyCustomDrawCallbackRegion* region,

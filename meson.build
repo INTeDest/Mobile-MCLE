@@ -1,3 +1,4 @@
+
 # MARK: build configuration
 
 project(
@@ -23,7 +24,7 @@ if host_machine.system() == 'android' or get_option('renderer') == 'gles'
     meson.override_dependency('glu', declare_dependency())
 
     add_project_arguments(
-        '-include', meson.project_source_root() / 'targets/platform/renderer/gl/gl3_loader.h',
+        '-include', meson.project_source_root() / 'targets/platform/renderer/gl/gl_compat.h',
         language: ['cpp', 'c']
     )
 endif

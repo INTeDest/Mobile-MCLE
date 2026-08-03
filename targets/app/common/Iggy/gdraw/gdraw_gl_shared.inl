@@ -1,3 +1,4 @@
+
 // gdraw_gl_shared.inl - copyright 2012 RAD Game Tools
 //
 // This file implements the part of the Iggy graphics driver layer shared
@@ -592,12 +593,20 @@ static rrbool RADLINK gdraw_MakeVertexBufferBegin(
             return false;
         }
     } else {
+#if defined(__ANDROID__) || defined(GLES) || defined(GDRAW_GLES)
+        p->vertex_data = (U8*)glMapBufferRange(GL_ARRAY_BUFFER, 0, vbuf_size, 0x0002 /*GL_MAP_WRITE_BIT*/ | 0x0004 /*GL_MAP_INVALIDATE_BUFFER_BIT*/);
+        p->vertex_data_length = vbuf_size;
+
+        p->index_data = (U8*)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, ibuf_size, 0x0002 /*GL_MAP_WRITE_BIT*/ | 0x0004 /*GL_MAP_INVALIDATE_BUFFER_BIT*/);
+        p->index_data_length = ibuf_size;
+#else
         p->vertex_data = (U8*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
         p->vertex_data_length = vbuf_size;
 
         p->index_data =
             (U8*)glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
         p->index_data_length = ibuf_size;
+#endif
     }
 
     opengl_check();
@@ -861,7 +870,7 @@ static GDrawHandle* get_depthstencil_renderbuffer(GDrawStats* gstats) {
             glBindRenderbuffer(GL_RENDERBUFFER,
                                gdraw->stencil_depth.handle.tex.gl);
             glRenderbufferStorageMultisample(
-                GL_RENDERBUFFER, gdraw->multisampling, GL_DEPTH24_STENCIL8,
+                GL_RENDERBUFFER, gdraw->multisampling, 0x84F9 /*GL_DEPTH24_STENCIL8*/,
                 gdraw->frametex_width, gdraw->frametex_height);
 
             gstats->alloc_tex_bytes += gdraw->multisampling * 4 *
@@ -873,7 +882,7 @@ static GDrawHandle* get_depthstencil_renderbuffer(GDrawStats* gstats) {
                 glGenRenderbuffers(1, &gdraw->stencil_depth.handle.tex.gl);
                 glBindRenderbuffer(GL_RENDERBUFFER,
                                    gdraw->stencil_depth.handle.tex.gl);
-                glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
+                glRenderbufferStorage(GL_RENDERBUFFER, 0x84F9 /*GL_DEPTH24_STENCIL8*/,
                                       gdraw->frametex_width,
                                       gdraw->frametex_height);
 
@@ -885,8 +894,8 @@ static GDrawHandle* get_depthstencil_renderbuffer(GDrawStats* gstats) {
                 glBindRenderbuffer(GL_RENDERBUFFER,
                                    gdraw->stencil_depth.handle.tex.gl);
                 glRenderbufferStorage(GL_RENDERBUFFER,
-                                      gdraw->has_depth24 ? GL_DEPTH_COMPONENT24
-                                                         : GL_DEPTH_COMPONENT16,
+                                      gdraw->has_depth24 ? 0x81A6 /*GL_DEPTH_COMPONENT24*/
+                                                         : 0x81A5 /*GL_DEPTH_COMPONENT16*/,
                                       gdraw->frametex_width,
                                       gdraw->frametex_height);
 
@@ -895,7 +904,7 @@ static GDrawHandle* get_depthstencil_renderbuffer(GDrawStats* gstats) {
                 glBindRenderbuffer(
                     GL_RENDERBUFFER,
                     gdraw->stencil_depth.handle.tex.gl_renderbuf);
-                glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8,
+                glRenderbufferStorage(GL_RENDERBUFFER, 0x8D48 /*GL_STENCIL_INDEX8*/,
                                       gdraw->frametex_width,
                                       gdraw->frametex_height);
             }
@@ -1613,9 +1622,9 @@ static int set_render_state(GDrawRenderState* r, S32 vformat,
                 break;
             case GDRAW_WRAP_mirror:
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                                GL_MIRRORED_REPEAT);
+                                0x8370 /*GL_MIRRORED_REPEAT*/);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
-                                GL_MIRRORED_REPEAT);
+                                0x8370 /*GL_MIRRORED_REPEAT*/);
                 break;
         }
 
@@ -2225,7 +2234,7 @@ static void make_fragment_program(ProgramWithCachedVariableLocations* p,
         glGetProgramiv(p->program, GL_LINK_STATUS, &res);
         if (!res) {
             char errors[512];
-            glGetProgramiv(p->program, GL_INFO_LOG_LENGTH, &res);
+            glGetProgramiv(p->program, 0x8B84 /*GL_INFO_LOG_LENGTH*/, &res);
             glGetProgramInfoLog(p->program, sizeof(errors) - 2, &res, errors);
             compilation_err(errors);
             glDeleteShader(shad);
