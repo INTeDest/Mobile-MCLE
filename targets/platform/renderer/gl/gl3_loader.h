@@ -52,6 +52,31 @@ static inline bool gl3_load() {
 extern "C" {
 #endif
 
+static inline void glBegin(GLenum mode) { (void)mode; }
+static inline void glEnd(void) {}
+
+static inline void glVertex2f(float x, float y) { (void)x; (void)y; }
+static inline void glVertex2i(int x, int y) { (void)x; (void)y; }
+static inline void glVertex3f(float x, float y, float z) { (void)x; (void)y; (void)z; }
+static inline void glVertex3d(double x, double y, double z) { (void)x; (void)y; (void)z; }
+static inline void glVertex3fv(const float* v) { (void)v; }
+
+static inline void glNormal3f(float nx, float ny, float nz) { (void)nx; (void)ny; (void)nz; }
+static inline void glNormal3fv(const float* v) { (void)v; }
+static inline void glNormal3b(signed char nx, signed char ny, signed char nz) { (void)nx; (void)ny; (void)nz; }
+
+static inline void glTexCoord2f(float s, float t) { (void)s; (void)t; }
+static inline void glTexCoord2d(double s, double t) { (void)s; (void)t; }
+static inline void glTexCoord2fv(const float* v) { (void)v; }
+
+static inline void glColor3f(float r, float g, float b) { (void)r; (void)g; (void)b; }
+static inline void glColor3ub(unsigned char r, unsigned char g, unsigned char b) { (void)r; (void)g; (void)b; }
+static inline void glColor4f(float r, float g, float b, float a) { (void)r; (void)g; (void)b; (void)a; }
+static inline void glColor4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a) { (void)r; (void)g; (void)b; (void)a; }
+static inline void glColor4fv(const float* v) { (void)v; }
+
+static inline void glRectf(float x1, float y1, float x2, float y2) { (void)x1; (void)y1; (void)x2; (void)y2; }
+
 static inline void glClearDepth(double depth) {
     glClearDepthf(static_cast<float>(depth));
 }
@@ -115,11 +140,23 @@ static inline void glLightfv(GLenum light, GLenum pname, const float* params) {
     (void)light; (void)pname; (void)params;
 }
 
+static inline void glLightf(GLenum light, GLenum pname, float param) {
+    (void)light; (void)pname; (void)param;
+}
+
+static inline void glLighti(GLenum light, GLenum pname, int param) {
+    (void)light; (void)pname; (void)param;
+}
+
 static inline void glLightModelfv(GLenum pname, const float* params) {
     (void)pname; (void)params;
 }
 
 static inline void glLightModeli(GLenum pname, int param) {
+    (void)pname; (void)param;
+}
+
+static inline void glLightModelf(GLenum pname, float param) {
     (void)pname; (void)param;
 }
 
@@ -150,7 +187,9 @@ static inline void glRotated(double angle, double x, double y, double z) { (void
 static inline void glScalef(float x, float y, float z) { (void)x; (void)y; (void)z; }
 static inline void glScaled(double x, double y, double z) { (void)x; (void)y; (void)z; }
 static inline void glLoadMatrixf(const float* m) { (void)m; }
+static inline void glLoadMatrixd(const double* m) { (void)m; }
 static inline void glMultMatrixf(const float* m) { (void)m; }
+static inline void glMultMatrixd(const double* m) { (void)m; }
 static inline void glEnableClientState(GLenum array) { (void)array; }
 static inline void glDisableClientState(GLenum array) { (void)array; }
 static inline void glClientActiveTexture(GLenum texture) { (void)texture; }
