@@ -4,7 +4,7 @@
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "MAIN", __VA_ARGS__)
 
-extern "C" int main(int argc, char* argv[]) __attribute__((weak));
+extern "C" int main(int argc, const char* argv[]);
 
 extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char* argv[]) {
     LOGI("SDL_main bridge called!");
@@ -13,12 +13,8 @@ extern "C" __attribute__((visibility("default"))) int SDL_main(int argc, char* a
     }
     LOGI("Current working directory set to app files.");
 
-    if (main) {
-        LOGI("Calling main()...");
-        int res = main(argc, argv);
-        LOGI("main() returned %d", res);
-        return res;
-    }
-    LOGI("main is NULL!");
-    return 0;
+    LOGI("Calling main()...");
+    int res = main(argc, (const char**)argv);
+    LOGI("main() returned %d", res);
+    return res;
 }

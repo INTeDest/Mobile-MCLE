@@ -1,4 +1,3 @@
-
 # MARK: build configuration
 
 project(
@@ -126,7 +125,10 @@ if host_machine.system() in ['linux', 'windows', 'darwin', 'android']
     platform_thread_dep = platform_thread_dep
 
     if host_machine.system() == 'android'
-        app_platform_sources = files('targets/app/android/sdl_main_bridge.cpp')
+        app_platform_sources = files(
+            'targets/app/android/sdl_main_bridge.cpp',
+            'targets/app/desktop/main.cpp'
+        )
     else
         app_platform_sources = files('targets/app/desktop/main.cpp')
     endif
