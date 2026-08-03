@@ -1207,19 +1207,6 @@ void glGenTextures_4J(int n, unsigned int* textures) { ::glGenTextures(n, textur
 void glDeleteTextures_4J(int id) { GLuint uid = (GLuint)id; ::glDeleteTextures(1, &uid); }
 void glDeleteTextures_4J(int n, const unsigned int* textures) { ::glDeleteTextures(n, textures); }
 
-extern "C" {
-extern void glClearDepthf(float depth);
-void glClearDepth(double depth) { glClearDepthf((float)depth); }
-void glTexGeni(unsigned int, unsigned int, int) {}
-void glTexGenfv(unsigned int, unsigned int, const float*) {}
-void glTexCoordPointer(int, unsigned int, int, const void*) {}
-void glNormalPointer(unsigned int, int, const void*) {}
-void glColorPointer(int, unsigned int, int, const void*) {}
-void glVertexPointer(int, unsigned int, int, const void*) {}
-void glEndList(void) {}
-void glCallLists(int, unsigned int, const void*) {}
-}
-
 inline int* getIntPtr(IntBuffer* buf) { return buf ? (int*)buf->getBuffer() + buf->position() : nullptr; }
 inline void* getBytePtr(ByteBuffer* buf) { return buf ? (char*)buf->getBuffer() + buf->position() : nullptr; }
 

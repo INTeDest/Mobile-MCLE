@@ -9,6 +9,123 @@ static inline bool gl3_load() {
     return true;
 }
 
+// Inline compatibility functions for legacy GL calls in Minecraft code
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+static inline void glClearDepth(double depth) {
+    glClearDepthf(static_cast<float>(depth));
+}
+
+static inline void glColorMaterial(GLenum face, GLenum mode) {
+    (void)face;
+    (void)mode;
+}
+
+static inline void glTexGeni(GLenum coord, GLenum pname, int param) {
+    (void)coord; (void)pname; (void)param;
+}
+
+static inline void glTexGenfv(GLenum coord, GLenum pname, const float* params) {
+    (void)coord; (void)pname; (void)params;
+}
+
+static inline void glTexCoordPointer(int size, GLenum type, int stride, const void* pointer) {
+    (void)size; (void)type; (void)stride; (void)pointer;
+}
+
+static inline void glNormalPointer(GLenum type, int stride, const void* pointer) {
+    (void)type; (void)stride; (void)pointer;
+}
+
+static inline void glColorPointer(int size, GLenum type, int stride, const void* pointer) {
+    (void)size; (void)type; (void)stride; (void)pointer;
+}
+
+static inline void glVertexPointer(int size, GLenum type, int stride, const void* pointer) {
+    (void)size; (void)type; (void)stride; (void)pointer;
+}
+
+static inline void glEndList(void) {}
+
+static inline void glCallLists(int n, GLenum type, const void* lists) {
+    (void)n; (void)type; (void)lists;
+}
+
+static inline void glShadeModel(GLenum mode) {
+    (void)mode;
+}
+
+static inline void glAlphaFunc(GLenum func, float ref) {
+    (void)func; (void)ref;
+}
+
+static inline void glFogf(GLenum pname, float param) {
+    (void)pname; (void)param;
+}
+
+static inline void glFogi(GLenum pname, int param) {
+    (void)pname; (void)param;
+}
+
+static inline void glFogfv(GLenum pname, const float* params) {
+    (void)pname; (void)params;
+}
+
+static inline void glLightfv(GLenum light, GLenum pname, const float* params) {
+    (void)light; (void)pname; (void)params;
+}
+
+static inline void glLightModelfv(GLenum pname, const float* params) {
+    (void)pname; (void)params;
+}
+
+static inline void glLightModeli(GLenum pname, int param) {
+    (void)pname; (void)param;
+}
+
+static inline void glMaterialfv(GLenum face, GLenum pname, const float* params) {
+    (void)face; (void)pname; (void)params;
+}
+
+static inline void glMaterialf(GLenum face, GLenum pname, float param) {
+    (void)face; (void)pname; (void)param;
+}
+
+static inline void glOrtho(double l, double r, double b, double t, double zn, double zf) {
+    (void)l; (void)r; (void)b; (void)t; (void)zn; (void)zf;
+}
+
+static inline void glFrustum(double l, double r, double b, double t, double zn, double zf) {
+    (void)l; (void)r; (void)b; (void)t; (void)zn; (void)zf;
+}
+
+static inline void glPushMatrix(void) {}
+static inline void glPopMatrix(void) {}
+static inline void glLoadIdentity(void) {}
+static inline void glMatrixMode(GLenum mode) { (void)mode; }
+static inline void glTranslatef(float x, float y, float z) { (void)x; (void)y; (void)z; }
+static inline void glTranslated(double x, double y, double z) { (void)x; (void)y; (void)z; }
+static inline void glRotatef(float angle, float x, float y, float z) { (void)angle; (void)x; (void)y; (void)z; }
+static inline void glRotated(double angle, double x, double y, double z) { (void)angle; (void)x; (void)y; (void)z; }
+static inline void glScalef(float x, float y, float z) { (void)x; (void)y; (void)z; }
+static inline void glScaled(double x, double y, double z) { (void)x; (void)y; (void)z; }
+static inline void glLoadMatrixf(const float* m) { (void)m; }
+static inline void glMultMatrixf(const float* m) { (void)m; }
+static inline void glEnableClientState(GLenum array) { (void)array; }
+static inline void glDisableClientState(GLenum array) { (void)array; }
+static inline void glClientActiveTexture(GLenum texture) { (void)texture; }
+static inline GLuint glGenLists(int range) { (void)range; return 1; }
+static inline void glNewList(GLuint list, GLenum mode) { (void)list; (void)mode; }
+static inline void glCallList(GLuint list) { (void)list; }
+static inline void glDeleteLists(GLuint list, int range) { (void)list; (void)range; }
+
+#ifdef __cplusplus
+}
+#endif
+
+// Fixed-Function OpenGL constants missing in GLES3
 #ifndef GL_ARRAY_BUFFER
 #define GL_ARRAY_BUFFER 0x8892
 #endif
