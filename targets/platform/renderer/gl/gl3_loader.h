@@ -5,6 +5,44 @@
 #include <EGL/egl.h>
 #include <cstdio>
 
+#ifdef __cplusplus
+#include <atomic>
+
+namespace std {
+#if !defined(__cpp_lib_atomic_ref)
+template <typename T>
+struct atomic_ref {
+    T& ptr;
+    explicit atomic_ref(T& ref) : ptr(ref) {}
+
+    bool compare_exchange_strong(T& expected, T desired,
+                                 std::memory_order = std::memory_order_seq_cst,
+                                 std::memory_order = std::memory_order_seq_cst) noexcept {
+        return __atomic_compare_exchange_n(&ptr, &expected, desired, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    }
+
+    bool compare_exchange_weak(T& expected, T desired,
+                               std::memory_order = std::memory_order_seq_cst,
+                               std::memory_order = std::memory_order_seq_cst) noexcept {
+        return __atomic_compare_exchange_n(&ptr, &expected, desired, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    }
+
+    T load(std::memory_order = std::memory_order_seq_cst) const noexcept {
+        return __atomic_load_n(&ptr, __ATOMIC_SEQ_CST);
+    }
+
+    void store(T desired, std::memory_order = std::memory_order_seq_cst) noexcept {
+        __atomic_store_n(&ptr, desired, __ATOMIC_SEQ_CST);
+    }
+
+    T exchange(T desired, std::memory_order = std::memory_order_seq_cst) noexcept {
+        return __atomic_exchange_n(&ptr, desired, __ATOMIC_SEQ_CST);
+    }
+};
+#endif
+}
+#endif
+
 static inline bool gl3_load() {
     return true;
 }
