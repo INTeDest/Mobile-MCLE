@@ -70,9 +70,21 @@ cp "$TOOLCHAIN/sysroot/usr/lib/$TARGET/libc++_shared.so" apk_workspace/lib/$ARCH
 # Игровые ассеты
 cp -r build-android/targets/app/Common apk_workspace/assets/
 
-# Java исходники
-cp -r android/src/* apk_workspace/java_src/
+# Java исходники SDL
 cp -r sdl_src/android-project/app/src/main/java/org apk_workspace/java_src/
+
+# Копируем наш MainActivity.java из корня (если он там)
+mkdir -p apk_workspace/java_src/x/intedest/mlce
+if [ -f "MainActivity.java" ]; then
+    cp MainActivity.java apk_workspace/java_src/x/intedest/mlce/
+fi
+
+# Копируем из android/src если существует
+if [ -d "android/src" ]; then
+    if [ "$(ls -A android/src 2>/dev/null)" ]; then
+        cp -r android/src/* apk_workspace/java_src/
+    fi
+fi
 
 # ================= 7. КОМПИЛЯЦИЯ JAVA В DEX =================
 java -jar ecj.jar -1.8 -target 1.8 -d apk_workspace/obj -classpath "$PLATFORM_JAR" $(find apk_workspace/java_src -name "*.java")
@@ -80,13 +92,35 @@ java -jar ecj.jar -1.8 -target 1.8 -d apk_workspace/obj -classpath "$PLATFORM_JA
 $D8 --release --min-api 21 --lib "$PLATFORM_JAR" --output apk_workspace/dex/ $(find apk_workspace/obj -name "*.class")
 
 # ================= 8. СБОРКА И ПОДПИСЬ APK =================
-$AAPT package -f -M android/AndroidManifest.xml -I "$PLATFORM_JAR" -S android/res -A apk_workspace/assets -F app-unsigned.apk
+
+# Проверяем, где лежит AndroidManifest.xml
+MANIFEST="AndroidManifest.xml"
+if [ ! -f "$MANIFEST" ] && [ -f "android/AndroidManifest.xml" ]; then
+    MANIFEST="android/AndroidManifest.xml"
+fi
+
+# Проверяем, есть ли папка ресурсов
+RES_DIR="res"
+if [ ! -d "$RES_DIR" ] && [ -d "android/res" ]; then
+    RES_DIR="android/res"
+fi
+
+# Если папка с ресурсами есть и она не пуста
+if [ -d "$RES_DIR" ] && [ "$(ls -A $RES_DIR 2>/dev/null)" ]; then
+    $AAPT package -f -M "$MANIFEST" -I "$PLATFORM_JAR" -S "$RES_DIR" -A apk_workspace/assets -F app-unsigned.apk
+else
+    # Если папки нет, запакуем без флага -S
+    $AAPT package -f -M "$MANIFEST" -I "$PLATFORM_JAR" -A apk_workspace/assets -F app-unsigned.apk
+fi
 
 cd apk_workspace
 zip -r ../app-unsigned.apk lib/ dex/classes.dex
 cd ..
 
-keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+# Генерируем ключ, если его еще нет
+if [ ! -f "debug.keystore" ]; then
+    keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+fi
 
 $ZIPALIGN -f -p 4 app-unsigned.apk debug.apk
 $APKSIGNER sign --ks debug.keystore --ks-pass pass:android debug.apk
