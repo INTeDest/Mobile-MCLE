@@ -49,6 +49,15 @@ global_cpp_defs = [
     '-DMULTITHREAD_ENABLE',
 ]
 
+if host_machine.system() == 'android' or get_option('renderer') == 'gles'
+    global_cpp_defs += [
+        '-DGLES',
+        '-DGLES3',
+        '-DGL_ES',
+        '-DGDRAW_GLES',
+    ]
+endif
+
 if get_option('buildtype') in ['debug', 'debugoptimized']
     global_cpp_defs += [
         '-D_DEBUG',

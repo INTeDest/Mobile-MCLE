@@ -4,58 +4,10 @@
 #include <GLES3/gl3ext.h>
 #include <EGL/egl.h>
 #include <stdio.h>
+#include <stdbool.h>
 
-#ifndef __cplusplus
-// Prevent Desktop GL headers (like SDL_opengl.h) from loading in C files on Android
-#define __SDL_opengl_h__
-#define __gl_h_
-#define __GL_H__
-#define __glew_h__
-#define __GLEW_H__
-
-// In C files (e.g. Iggy UI gdraw.c), prevent static extension pointer variable declarations
-// from clashing with core GLES3 function declarations in <GLES3/gl3.h>
-#define glGenBuffers gdraw_glGenBuffers
-#define glDeleteBuffers gdraw_glDeleteBuffers
-#define glBindBuffer gdraw_glBindBuffer
-#define glBufferData gdraw_glBufferData
-#define glBufferSubData gdraw_glBufferSubData
-#define glMapBuffer gdraw_glMapBuffer
-#define glUnmapBuffer gdraw_glUnmapBuffer
-#define glVertexAttribPointer gdraw_glVertexAttribPointer
-#define glEnableVertexAttribArray gdraw_glEnableVertexAttribArray
-#define glDisableVertexAttribArray gdraw_glDisableVertexAttribArray
-#define glCreateShader gdraw_glCreateShader
-#define glDeleteShader gdraw_glDeleteShader
-#define glShaderSource gdraw_glShaderSource
-#define glCompileShader gdraw_glCompileShader
-#define glGetShaderiv gdraw_glGetShaderiv
-#define glGetShaderInfoLog gdraw_glGetShaderInfoLog
-#define glCreateProgram gdraw_glCreateProgram
-#define glDeleteProgram gdraw_glDeleteProgram
-#define glAttachShader gdraw_glAttachShader
-#define glLinkProgram gdraw_glLinkProgram
-#define glUseProgram gdraw_glUseProgram
-#define glGetProgramiv gdraw_glGetProgramiv
-#define glGetProgramInfoLog gdraw_glGetProgramInfoLog
-#define glGetUniformLocation gdraw_glGetUniformLocation
-#define glGetAttribLocation gdraw_glGetAttribLocation
-#define glUniform1i gdraw_glUniform1i
-#define glUniform1f gdraw_glUniform1f
-#define glUniform2f gdraw_glUniform2f
-#define glUniform3f gdraw_glUniform3f
-#define glUniform4f gdraw_glUniform4f
-#define glUniform1fv gdraw_glUniform1fv
-#define glUniform2fv gdraw_glUniform2fv
-#define glUniform3fv gdraw_glUniform3fv
-#define glUniform4fv gdraw_glUniform4fv
-#define glUniformMatrix4fv gdraw_glUniformMatrix4fv
-#define glGenVertexArrays gdraw_glGenVertexArrays
-#define glBindVertexArray gdraw_glBindVertexArray
-#define glDeleteVertexArrays gdraw_glDeleteVertexArrays
-#define glActiveTexture gdraw_glActiveTexture
-#define glBlendEquation gdraw_glBlendEquation
-#define glBlendFuncSeparate gdraw_glBlendFuncSeparate
+#ifndef APIENTRY
+#define APIENTRY
 #endif
 
 #ifdef __cplusplus
