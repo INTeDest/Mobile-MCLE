@@ -1,0 +1,30 @@
+name: Build Android
+
+on:
+  push:
+    branches: [ main, master, "feat/*" ]
+  workflow_dispatch:
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Meson and Ninja
+        run: pip install meson ninja
+
+      - name: Build Android APK
+        run: bash scripts/build_android.sh
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: debug.apk

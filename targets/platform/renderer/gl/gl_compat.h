@@ -1,30 +1,13 @@
 #pragma once
 
-// Legacy gl* compatibility shim for code that still issues fixed-function
-// OpenGL calls. Provides:
-//   - GL_* constant defines for use with legacy gl* call sites
-//   - Macros that route legacy glPushMatrix / glColor4f / etc. through
-//     PlatformRenderer
-//   - Template implementations of glLight_4J / glFog_4J / glTexGen_4J
-//     etc., used by the legacy producers
-//   - #define glLight glLight_4J style consumer-facing macros
-//
-// New rendering code should call IPlatformRenderer methods directly via
-// the PlatformRenderer extern. This shim exists to keep the legacy
-// rendering files compiling without dragging the concrete GLRenderer
-// class into every minecraft TU.
-
-// #include "gl3_loader.h"
-// NOTE: gl3_loader.h must be included before these two
-#include <GL/glew.h>
-
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 #include <cstdint>
 #include <cstdlib>
 
 #include "platform/renderer/IPlatformRenderer.h"
 #include "platform/renderer/renderer.h"
 
-// OpenGL Interception Macros
 #ifndef GL_MODELVIEW_MATRIX
 #define GL_MODELVIEW_MATRIX 0x0BA6
 #endif
@@ -272,19 +255,13 @@
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
 
-// glCallList / display list macros
 #undef glNewList
 #define glNewList(_list, _mode) PlatformRenderer.CBuffStart(_list)
 #undef glEndList
 #define glEndList() PlatformRenderer.CBuffEnd()
 #undef glCallList
-// CBuffCall is [[nodiscard]] because it can fail (chunk not ready), but
-// legacy display list call sites treat it as fire-and-forget rendering -
-// a missed call just means nothing draws this frame, which is what the
-// old GL display list semantics already gave them.
 #define glCallList(_list) ((void)PlatformRenderer.CBuffCall(_list))
 
-// glGenLists / glDeleteLists, lists are not supported in core!!!!!
 #undef glGenLists
 #define glGenLists(range) PlatformRenderer.CBuffCreate(range)
 #undef glDeleteLists
@@ -292,9 +269,8 @@
 
 #ifndef GL_SHADEMODEL_IS_FUNCTION
 #undef glShadeModel
-#define glShadeModel(mode) \
-    do {                   \
-    } while (0)
+#define GL_SHADEMODEL_IS_FUNCTION
+static inline void glShadeModel(int mode) { (void)mode; }
 #endif
 
 #undef glTranslatef
@@ -478,7 +454,6 @@
         PlatformRenderer.StateSetActiveTexture(tex); \
     } while (0)
 
-// declarations
 int glGenTextures_4J();
 void glGenTextures_4J(int n, unsigned int* textures);
 void glDeleteTextures_4J(int id);
@@ -494,6 +469,7 @@ inline void glGenTextures_4J(T* buf) {
     buf->put((int)id);
     buf->flip();
 }
+
 template <typename T>
 inline void glDeleteTextures_4J(T* buf) {
     if (buf->limit() > 0) {
@@ -501,15 +477,16 @@ inline void glDeleteTextures_4J(T* buf) {
         ::glDeleteTextures(1, &id);
     }
 }
+
 template <typename T>
-inline void glTexCoordPointer_4J(int size, int type, T* pointer) {}
+inline void glTexCoordPointer_4J(int size, int type, T* pointer) { (void)size; (void)type; (void)pointer; }
 template <typename T>
-inline void glNormalPointer_4J(int type, T* pointer) {}
+inline void glNormalPointer_4J(int type, T* pointer) { (void)type; (void)pointer; }
 template <typename T>
-inline void glColorPointer_4J(int size, bool normalized, int stride,
-                              T* pointer) {}
+inline void glColorPointer_4J(int size, bool normalized, int stride, T* pointer) { (void)size; (void)normalized; (void)stride; (void)pointer; }
 template <typename T>
-inline void glVertexPointer_4J(int size, int type, T* pointer) {}
+inline void glVertexPointer_4J(int size, int type, T* pointer) { (void)size; (void)type; (void)pointer; }
+
 template <typename T>
 inline void glTexImage2D_4J(int target, int level, int internalformat,
                             int width, int height, int border, int format,
@@ -518,6 +495,7 @@ inline void glTexImage2D_4J(int target, int level, int internalformat,
     ::glTexImage2D((unsigned int)target, level, internalformat, width, height,
                    border, (unsigned int)format, (unsigned int)type, data);
 }
+
 template <typename T>
 inline void glCallLists_4J(T* lists) {
     int base = lists->position();
@@ -526,12 +504,14 @@ inline void glCallLists_4J(T* lists) {
         PlatformRenderer.CBuffCall(lists->get(base + i));
     }
 }
+
 template <typename T>
 inline void glFog_4J(int pname, T* params) {
     float* p = params->_getDataPointer();
     if (pname == 0x0B66 /* GL_FOG_COLOR */)
         PlatformRenderer.StateSetFogColour(p[0], p[1], p[2]);
 }
+
 template <typename T>
 inline void glLight_4J(int light, int pname, T* params) {
     float* p = params->_getDataPointer();
@@ -544,32 +524,36 @@ inline void glLight_4J(int light, int pname, T* params) {
         PlatformRenderer.StateSetLightColour(light == 0x4000 ? 0 : 1, p[0],
                                              p[1], p[2]);
 }
+
 template <typename T>
 inline void glLightModel_4J(int pname, T* params) {
     float* p = params->_getDataPointer();
     if (pname == 0x0B53 /* GL_LIGHT_MODEL_AMBIENT */)
         PlatformRenderer.StateSetLightAmbientColour(p[0], p[1], p[2]);
 }
+
 template <typename T>
-inline void glTexGen_4J(int coord, int pname, T* params) {}
+inline void glTexGen_4J(int coord, int pname, T* params) { (void)coord; (void)pname; (void)params; }
+
 inline void glReadPixels_4J(int x, int y, int width, int height, int format,
                             int type, void* pixels) {
     ::glReadPixels(x, y, width, height, (unsigned int)format,
                    (unsigned int)type, pixels);
 }
+
 inline void glReadPixels_4J(int x, int y, int width, int height, int format,
                             int type, unsigned char* pixels) {
     ::glReadPixels(x, y, width, height, (unsigned int)format,
                    (unsigned int)type, (void*)pixels);
 }
-// T -> .getBuffer()
+
 template <typename T>
 inline void glReadPixels_4J(int x, int y, int width, int height, int format,
                             int type, T* pixels) {
     ::glReadPixels(x, y, width, height, (unsigned int)format,
                    (unsigned int)type, pixels->getBuffer());
 }
-// redirect the functions to my own implementation, no more 2.1 funcs
+
 #define glGenTextures(...) glGenTextures_4J(__VA_ARGS__)
 #define glDeleteTextures(...) glDeleteTextures_4J(__VA_ARGS__)
 #define glTexCoordPointer(a, b, c) glTexCoordPointer_4J(a, b, c)

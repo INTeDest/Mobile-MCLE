@@ -1,5 +1,9 @@
 #include "GLRenderer.h"
 
+#include <android/log.h>
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "GL", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "GL", __VA_ARGS__)
+
 #include "SDL.h"
 #include "SDL_error.h"
 #include "SDL_events.h"
@@ -11,7 +15,6 @@
 #include "platform/PlatformTypes.h"
 #include "platform/renderer/renderer.h"
 
-// undefine macros from header to avoid argument mismatch
 #undef glGenTextures
 #undef glDeleteTextures
 #undef glTexImage2D
@@ -61,34 +64,15 @@ IPlatformRenderer& PlatformRenderer_get() {
 }
 }  // namespace platform_internal
 
-// MARK: Shaders
-
 #define CPP_GLSL_INCLUDE
-
-#ifdef GLES
 static const char* VERT_SRC =
 #include "./shaders/vertex_es.vert"
-
     ;
 static const char* FRAG_SRC =
 #include "./shaders/fragment_es.frag"
-
     ;
-#else
-static const char* VERT_SRC =
-#include "./shaders/vertex.vert"
-
-    ;
-static const char* FRAG_SRC =
-#include "./shaders/fragment.frag"
-    ;
-#endif
-
 #undef CPP_GLSL_INCLUDE
 
-// MARK: OpenGL state
-
-// Hello SDL and opengl 3.3
 static SDL_Window* s_window = nullptr;
 static SDL_GLContext s_glContext = nullptr;
 static bool s_shouldClose = false;
@@ -99,15 +83,8 @@ static int s_reqHeight = 1080;
 static bool s_fullscreen = false;
 
 static thread_local SDL_GLContext s_glCtx = nullptr;
-
 static std::once_flag s_glCtxKeyOnce;
 
-static const int MAX_SHARED_CTXS = 6;
-static SDL_Window* s_sharedWins[MAX_SHARED_CTXS] = {};
-static SDL_GLContext s_sharedCtxs[MAX_SHARED_CTXS] = {};
-static int s_sharedCtxCount = 0;
-static int s_nextSharedCtx = 0;
-static std::mutex s_sharedMtx;
 static std::mutex s_glCallMtx;
 static std::thread::id s_mainThreadId;
 static bool s_mainThreadSet = false;
@@ -160,7 +137,15 @@ static void onFramebufferResize(int w, int h) {
 }
 
 static GLuint compileShader(GLenum type, const char* src) {
+    while (*src && (*src == '\r' || *src == '\n' || *src == ' ' || *src == '\t')) {
+        src++;
+    }
+    LOGI("Compiling shader type %u...", type);
     GLuint s = glCreateShader(type);
+    if (!s) {
+        LOGE("glCreateShader returned 0! GL Error: 0x%x", glGetError());
+        return 0;
+    }
     glShaderSource(s, 1, &src, nullptr);
     glCompileShader(s);
     GLint ok = 0;
@@ -168,15 +153,21 @@ static GLuint compileShader(GLenum type, const char* src) {
     if (!ok) {
         char log[1024];
         glGetShaderInfoLog(s, sizeof(log), nullptr, log);
-        fprintf(stderr, "[4J_Render] shader error:\n%s\n", log);
+        LOGE("[Render] shader compilation error:\n%s\nShader Source:\n%s", log, src);
         glDeleteShader(s);
         return 0;
     }
+    LOGI("Shader compiled successfully: %u", s);
     return s;
 }
 
 static GLuint linkProgram(GLuint v, GLuint f) {
+    LOGI("Linking program v=%u, f=%u...", v, f);
     GLuint p = glCreateProgram();
+    if (!p) {
+        LOGE("glCreateProgram returned 0! GL Error: 0x%x", glGetError());
+        return 0;
+    }
     glAttachShader(p, v);
     glAttachShader(p, f);
     glLinkProgram(p);
@@ -185,17 +176,16 @@ static GLuint linkProgram(GLuint v, GLuint f) {
     if (!ok) {
         char log[1024];
         glGetProgramInfoLog(p, sizeof(log), nullptr, log);
-        fprintf(stderr, "[4J_Render] link error:\n%s\n", log);
+        LOGE("[Render] link error:\n%s", log);
         glDeleteProgram(p);
         return 0;
     }
+    LOGI("Program linked successfully: %u", p);
     return p;
 }
 
-// Shader struct
 struct ShaderUniforms {
     GLuint prog = 0;
-
     GLint uMVP = -1, uMV = -1, uBaseColor = -1;
     GLint uTexMat0 = -1;
     GLint uNormalMatrix = -1, uNormalSign = -1;
@@ -210,71 +200,51 @@ struct ShaderUniforms {
     GLint uChunkOffset = -1;
 
     void build(const char* vs, const char* fs) {
+        LOGI("Building shader program...");
         GLuint v = compileShader(GL_VERTEX_SHADER, vs);
         GLuint f = compileShader(GL_FRAGMENT_SHADER, fs);
+        if (!v || !f) {
+            LOGE("Shader compilation failed! Aborting build.");
+            return;
+        }
         prog = linkProgram(v, f);
         glDeleteShader(v);
         glDeleteShader(f);
-        if (!prog) return;
+        if (!prog) {
+            LOGE("Shader program creation failed!");
+            return;
+        }
 
 #define L(x) x = glGetUniformLocation(prog, #x)
-        L(uMVP);
-        L(uMV);
-        L(uNormalMatrix);
-        L(uNormalSign);
-        L(uTexMat0);
-        L(uBaseColor);
-        L(uLighting);
-        L(uLight0Dir);
-        L(uLight1Dir);
-        L(uLightDiffuse);
-        L(uLightAmbient);
-        L(uFogMode);
-        L(uFogStart);
-        L(uFogEnd);
-        L(uFogDensity);
-        L(uFogColor);
-        L(uFogEnable);
-        L(uLMTransform);
-        L(uUseLightmap);
-        L(uAlphaRef);
-        L(uTex0);
-        L(uTex1);
-        L(uGlobalLM);
-        L(uUseTexture);
-        L(uInvGamma);
-        L(uChunkOffset);
+        L(uMVP); L(uMV); L(uNormalMatrix); L(uNormalSign);
+        L(uTexMat0); L(uBaseColor); L(uLighting); L(uLight0Dir);
+        L(uLight1Dir); L(uLightDiffuse); L(uLightAmbient); L(uFogMode);
+        L(uFogStart); L(uFogEnd); L(uFogDensity); L(uFogColor);
+        L(uFogEnable); L(uLMTransform); L(uUseLightmap); L(uAlphaRef);
+        L(uTex0); L(uTex1); L(uGlobalLM); L(uUseTexture);
+        L(uInvGamma); L(uChunkOffset);
 #undef L
-
         glUseProgram(prog);
         glUniform1i(uTex0, 0);
         glUniform1i(uTex1, 1);
+        LOGI("Shader program built successfully! Prog=%u", prog);
     }
 } s_shader;
 
-// Matrix stacks
 static const int STACK_DEPTH = 64;
 struct MatrixStack {
     glm::mat4 stack[STACK_DEPTH];
     int top = 0;
     MatrixStack() { stack[0] = glm::mat4(1.f); }
     glm::mat4& cur() { return stack[top]; }
-    void push() {
-        if (top < STACK_DEPTH - 1) {
-            stack[top + 1] = stack[top];
-            ++top;
-        }
-    }
-    void pop() {
-        if (top > 0) --top;
-    }
+    void push() { if (top < STACK_DEPTH - 1) { stack[top + 1] = stack[top]; ++top; } }
+    void pop() { if (top > 0) --top; }
     void load(const glm::mat4& m) { cur() = m; }
     void mul(const glm::mat4& m) { cur() = cur() * m; }
 };
 static thread_local MatrixStack s_proj, s_mv, s_tex[2];
-static thread_local int s_matMode = 0;  // 0=MV 1=proj 2=tex0 3=tex1
+static thread_local int s_matMode = 0;
 
-// cache normal matrix
 static thread_local bool s_normalMatDirty = true;
 static thread_local glm::mat3 s_cachedNormalMat;
 static thread_local float s_cachedNormalSign = 1.0f;
@@ -284,12 +254,9 @@ static inline void markMatrixDirty() { s_matDirty = true; }
 
 static MatrixStack& activeStack() {
     switch (s_matMode) {
-        case 1:
-            return s_proj;
-        case 2:
-            return s_tex[0];
-        case 3:
-            return s_tex[1];
+        case 1: return s_proj;
+        case 2: return s_tex[0];
+        case 3: return s_tex[1];
     }
     return s_mv;
 }
@@ -298,27 +265,20 @@ static void flushMatrices() {
     if (s_matDirty) {
         glm::mat4 mvp = s_proj.cur() * s_mv.cur();
         glUniformMatrix4fv(s_shader.uMVP, 1, GL_FALSE, glm::value_ptr(mvp));
-        glUniformMatrix4fv(s_shader.uMV, 1, GL_FALSE,
-                           glm::value_ptr(s_mv.cur()));
-
-        // Send the texture matrix to the depths of hell...
-        glUniformMatrix4fv(s_shader.uTexMat0, 1, GL_FALSE,
-                           glm::value_ptr(s_tex[0].cur()));
+        glUniformMatrix4fv(s_shader.uMV, 1, GL_FALSE, glm::value_ptr(s_mv.cur()));
+        glUniformMatrix4fv(s_shader.uTexMat0, 1, GL_FALSE, glm::value_ptr(s_tex[0].cur()));
         s_matDirty = false;
     }
-
     if (s_shader.uNormalMatrix >= 0 && s_normalMatDirty) {
         glm::mat3 m3 = glm::mat3(s_mv.cur());
         s_cachedNormalMat = glm::transpose(glm::inverse(m3));
         s_cachedNormalSign = glm::determinant(m3) < 0.0f ? -1.0f : 1.0f;
         s_normalMatDirty = false;
-        glUniformMatrix3fv(s_shader.uNormalMatrix, 1, GL_FALSE,
-                           glm::value_ptr(s_cachedNormalMat));
+        glUniformMatrix3fv(s_shader.uNormalMatrix, 1, GL_FALSE, glm::value_ptr(s_cachedNormalMat));
         glUniform1f(s_shader.uNormalSign, s_cachedNormalSign);
     }
 }
 
-// Render state
 struct RenderState {
     glm::vec4 baseColor = {1, 1, 1, 1};
     glm::vec4 fogColor = {0, 0, 0, 1};
@@ -333,7 +293,7 @@ struct RenderState {
     glm::vec3 ldiff = {0.6f, 0.6f, 0.6f};
     glm::vec3 lamb = {0.4f, 0.4f, 0.4f};
     glm::vec4 lmt = {1, 1, 0, 0};
-    glm::vec2 globalLM = {240.f, 240.f};  // fullbright default
+    glm::vec2 globalLM = {240.f, 240.f};
     int activeTexture = 0;
 };
 
@@ -349,18 +309,12 @@ enum RenderDirtyBits {
 };
 
 static inline void markDirty(unsigned int bit) { s_rs_dirty_mask |= bit; }
-
 static thread_local RenderState s_rs;
-
-// track currently bound program to avoid iggy shitting up
 static GLuint s_boundProgram = 0;
 
 static void glShadowSetBlend(bool e) {
     if (!(s_gl_shadow_mask & SHADOW_BLEND) || s_gl_state.blend != e) {
-        if (e)
-            ::glEnable(GL_BLEND);
-        else
-            ::glDisable(GL_BLEND);
+        if (e) ::glEnable(GL_BLEND); else ::glDisable(GL_BLEND);
         s_gl_state.blend = e;
         s_gl_shadow_mask |= SHADOW_BLEND;
     }
@@ -368,10 +322,7 @@ static void glShadowSetBlend(bool e) {
 
 static void glShadowSetCull(bool e) {
     if (!(s_gl_shadow_mask & SHADOW_CULL) || s_gl_state.cull != e) {
-        if (e)
-            ::glEnable(GL_CULL_FACE);
-        else
-            ::glDisable(GL_CULL_FACE);
+        if (e) ::glEnable(GL_CULL_FACE); else ::glDisable(GL_CULL_FACE);
         s_gl_state.cull = e;
         s_gl_shadow_mask |= SHADOW_CULL;
     }
@@ -379,18 +330,14 @@ static void glShadowSetCull(bool e) {
 
 static void glShadowSetDepthTest(bool e) {
     if (!(s_gl_shadow_mask & SHADOW_DEPTH) || s_gl_state.depth != e) {
-        if (e)
-            ::glEnable(GL_DEPTH_TEST);
-        else
-            ::glDisable(GL_DEPTH_TEST);
+        if (e) ::glEnable(GL_DEPTH_TEST); else ::glDisable(GL_DEPTH_TEST);
         s_gl_state.depth = e;
         s_gl_shadow_mask |= SHADOW_DEPTH;
     }
 }
 
 static void glShadowSetBlendFunc(GLint s, GLint d) {
-    if (!(s_gl_shadow_mask & SHADOW_BLEND_FUNC) || s_gl_state.blendSrc != s ||
-        s_gl_state.blendDst != d) {
+    if (!(s_gl_shadow_mask & SHADOW_BLEND_FUNC) || s_gl_state.blendSrc != s || s_gl_state.blendDst != d) {
         ::glBlendFunc(s, d);
         s_gl_state.blendSrc = s;
         s_gl_state.blendDst = d;
@@ -406,11 +353,8 @@ static void glShadowSetDepthMask(GLboolean e) {
     }
 }
 
-static void glShadowSetColorMask(GLboolean r, GLboolean g, GLboolean b,
-                                 GLboolean a) {
-    if (!(s_gl_shadow_mask & SHADOW_COLOR_MASK) ||
-        s_gl_state.colorMask[0] != r || s_gl_state.colorMask[1] != g ||
-        s_gl_state.colorMask[2] != b || s_gl_state.colorMask[3] != a) {
+static void glShadowSetColorMask(GLboolean r, GLboolean g, GLboolean b, GLboolean a) {
+    if (!(s_gl_shadow_mask & SHADOW_COLOR_MASK) || s_gl_state.colorMask[0] != r || s_gl_state.colorMask[1] != g || s_gl_state.colorMask[2] != b || s_gl_state.colorMask[3] != a) {
         ::glColorMask(r, g, b, a);
         s_gl_state.colorMask[0] = r;
         s_gl_state.colorMask[1] = g;
@@ -421,16 +365,11 @@ static void glShadowSetColorMask(GLboolean r, GLboolean g, GLboolean b,
 }
 
 static void glShadowSetLineWidth(float w) {
-    if (!(s_gl_shadow_mask & SHADOW_LINE_WIDTH) || s_gl_state.lineWidth != w) {
-        ::glLineWidth(w);
-        s_gl_state.lineWidth = w;
-        s_gl_shadow_mask |= SHADOW_LINE_WIDTH;
-    }
+    (void)w;
 }
 
 static void glShadowSetFrontFace(GLenum mode) {
-    if (!(s_gl_shadow_mask & SHADOW_FRONT_FACE) ||
-        s_gl_state.frontFace != mode) {
+    if (!(s_gl_shadow_mask & SHADOW_FRONT_FACE) || s_gl_state.frontFace != mode) {
         ::glFrontFace(mode);
         s_gl_state.frontFace = mode;
         s_gl_shadow_mask |= SHADOW_FRONT_FACE;
@@ -439,18 +378,13 @@ static void glShadowSetFrontFace(GLenum mode) {
 
 static void glShadowSetPolygonOffset(float slope, float bias) {
     bool enable = (slope != 0.0f || bias != 0.0f);
-    if (!(s_gl_shadow_mask & SHADOW_POLY_OFFSET) ||
-        s_gl_state.polygon != enable) {
-        if (enable)
-            ::glEnable(GL_POLYGON_OFFSET_FILL);
-        else
-            ::glDisable(GL_POLYGON_OFFSET_FILL);
+    if (!(s_gl_shadow_mask & SHADOW_POLY_OFFSET) || s_gl_state.polygon != enable) {
+        if (enable) ::glEnable(GL_POLYGON_OFFSET_FILL); else ::glDisable(GL_POLYGON_OFFSET_FILL);
         s_gl_state.polygon = enable;
         s_gl_shadow_mask |= SHADOW_POLY_OFFSET;
     }
     if (enable) {
-        if (!(s_gl_shadow_mask & SHADOW_POLY_OFFSET_PARAMS) ||
-            s_gl_state.polySlope != slope || s_gl_state.polyBias != bias) {
+        if (!(s_gl_shadow_mask & SHADOW_POLY_OFFSET_PARAMS) || s_gl_state.polySlope != slope || s_gl_state.polyBias != bias) {
             ::glPolygonOffset(slope, bias);
             s_gl_state.polySlope = slope;
             s_gl_state.polyBias = bias;
@@ -459,17 +393,13 @@ static void glShadowSetPolygonOffset(float slope, float bias) {
     }
 }
 
-static void glShadowSetStencil(GLenum fn, uint8_t ref, uint8_t fmask,
-                               uint8_t wmask) {
+static void glShadowSetStencil(GLenum fn, uint8_t ref, uint8_t fmask, uint8_t wmask) {
     if (!(s_gl_shadow_mask & SHADOW_STENCIL) || !s_gl_state.stencil) {
         ::glEnable(GL_STENCIL_TEST);
         s_gl_state.stencil = true;
         s_gl_shadow_mask |= SHADOW_STENCIL;
     }
-    if (!(s_gl_shadow_mask & SHADOW_STENCIL_PARAMS) ||
-        s_gl_state.stencilFunc != fn || s_gl_state.stencilRef != (GLint)ref ||
-        s_gl_state.stencilMask != fmask ||
-        s_gl_state.stencilWriteMask != wmask) {
+    if (!(s_gl_shadow_mask & SHADOW_STENCIL_PARAMS) || s_gl_state.stencilFunc != fn || s_gl_state.stencilRef != (GLint)ref || s_gl_state.stencilMask != fmask || s_gl_state.stencilWriteMask != wmask) {
         ::glStencilFunc(fn, ref, fmask);
         ::glStencilMask(wmask);
         s_gl_state.stencilFunc = fn;
@@ -484,8 +414,6 @@ static thread_local glm::vec3 s_chunkOffset;
 
 static void pushRenderState() {
     if (!s_shader.prog) return;
-
-    // only call glUseProgram when something actually changed the binding
     if (s_boundProgram != s_shader.prog) {
         glUseProgram(s_shader.prog);
         s_boundProgram = s_shader.prog;
@@ -493,11 +421,9 @@ static void pushRenderState() {
         s_normalMatDirty = true;
         s_rs_dirty_mask = 0xFFFFFFFF;
     }
-
     if (s_rs_dirty_mask) {
         if (s_rs_dirty_mask & DIRTY_BASECOLOR)
-            glUniform4fv(s_shader.uBaseColor, 1,
-                         glm::value_ptr(s_rs.baseColor));
+            glUniform4fv(s_shader.uBaseColor, 1, glm::value_ptr(s_rs.baseColor));
         if (s_rs_dirty_mask & DIRTY_LIGHTING) {
             glUniform1i(s_shader.uLighting, s_rs.lighting ? 1 : 0);
             glUniform3fv(s_shader.uLight0Dir, 1, glm::value_ptr(s_rs.l0));
@@ -556,16 +482,17 @@ static void initStreamingVAOs() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-// Chunk buffer pool (shared, protected by s_glCallMtx)
 struct ChunkDrawCall {
     GLenum prim;
     GLint first;
     GLsizei count;
 };
 
+static std::vector<GLuint> s_vboDeleteQueue;
+static std::vector<GLuint> s_vaoDeleteQueue;
+
 struct ChunkBuffer {
     GLuint vbo = 0;
-    // each chunks has its one VAO now
     GLuint vao = 0;
     std::vector<ChunkDrawCall> draws;
     std::vector<uint8_t> rawVerts;
@@ -573,11 +500,19 @@ struct ChunkBuffer {
     bool vboReady = false;
     void destroy() {
         if (vbo) {
-            glDeleteBuffers(1, &vbo);
+            if (s_mainThreadSet && std::this_thread::get_id() == s_mainThreadId) {
+                glDeleteBuffers(1, &vbo);
+            } else {
+                s_vboDeleteQueue.push_back(vbo);
+            }
             vbo = 0;
         }
         if (vao) {
-            glDeleteVertexArrays(1, &vao);
+            if (s_mainThreadSet && std::this_thread::get_id() == s_mainThreadId) {
+                glDeleteVertexArrays(1, &vao);
+            } else {
+                s_vaoDeleteQueue.push_back(vao);
+            }
             vao = 0;
         }
         draws.clear();
@@ -590,47 +525,36 @@ struct ChunkBuffer {
 static std::unordered_map<int, ChunkBuffer> s_chunkPool;
 static int s_nextListBase = 1;
 
-// Per-thread recording state
 static thread_local int s_recListId = -1;
 static thread_local std::vector<uint8_t> s_recVerts;
 static thread_local std::vector<ChunkDrawCall> s_recDraws;
 
-// Primitive helpers
 static bool isQuadPrim(int pt) {
-    return (pt == 0x0007 /*GL_QUADS*/ ||
-            pt == (int)GLRenderer::PRIMITIVE_TYPE_QUAD_LIST);
+    return (pt == 0x0007 || pt == (int)GLRenderer::PRIMITIVE_TYPE_QUAD_LIST);
 }
 
 static GLenum mapPrim(int pt) {
     if (isQuadPrim(pt)) return GL_TRIANGLES;
     switch (pt) {
-        case 0:
-            return GL_TRIANGLES;
-        case 1:
-            return GL_LINES;
-        case 2:
-            return GL_TRIANGLE_FAN;
-        case 3:
-            return GL_LINE_STRIP;
-        case 4:
-            return GL_TRIANGLES;
-        case 5:
-            return GL_TRIANGLE_STRIP;
-        case 6:
-            return GL_TRIANGLE_FAN;
-        default:
-            return GL_TRIANGLES;
+        case 0: return GL_TRIANGLES;
+        case 1: return GL_LINES;
+        case 2: return GL_TRIANGLE_FAN;
+        case 3: return GL_LINE_STRIP;
+        case 4: return GL_TRIANGLES;
+        case 5: return GL_TRIANGLE_STRIP;
+        case 6: return GL_TRIANGLE_FAN;
+        default: return GL_TRIANGLES;
     }
 }
 
-// MARK: Renderer impl
-
-// Initialises the renderer
 void GLRenderer::Initialise() {
+    LOGI("GLRenderer::Initialise started");
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        fprintf(stderr, "[4J_Render] SDL_Init: %s\n", SDL_GetError());
+        LOGE("SDL_Init failed: %s", SDL_GetError());
         return;
     }
+    LOGI("SDL_Init successful");
+
     SDL_DisplayMode dm;
     if (s_reqWidth > 0 && s_reqHeight > 0) {
         s_windowWidth = s_reqWidth;
@@ -639,76 +563,66 @@ void GLRenderer::Initialise() {
         s_windowWidth = (int)(dm.w * 0.4f);
         s_windowHeight = (int)(dm.h * 0.4f);
     }
-#ifdef GLES
+    LOGI("Window size: %dx%d", s_windowWidth, s_windowHeight);
+
+    LOGI("Setting GLES 3.0 attributes");
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#else
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
-                        SDL_GL_CONTEXT_PROFILE_CORE);
-#endif
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
     Uint32 wf = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     if (s_fullscreen) wf |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+
+    LOGI("Creating window...");
     s_window = SDL_CreateWindow("Minecraft Console Edition",
                                 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                 s_windowWidth, s_windowHeight, wf);
     if (!s_window) {
-        fprintf(stderr, "[4J_Render] Window: %s\n", SDL_GetError());
+        LOGE("SDL_CreateWindow failed: %s", SDL_GetError());
         return;
     }
+    LOGI("Window created: %p", s_window);
+
+    LOGI("Creating GL context...");
     s_glContext = SDL_GL_CreateContext(s_window);
     if (!s_glContext) {
-        fprintf(stderr, "[4J_Render] Context: %s\n", SDL_GetError());
+        LOGE("SDL_GL_CreateContext failed: %s", SDL_GetError());
         return;
     }
-#ifndef GLES
-    gl3_load();
-#endif
+    LOGI("GL context created: %p", s_glContext);
+
     int fw, fh;
     SDL_GetWindowSize(s_window, &fw, &fh);
     onFramebufferResize(fw, fh);
+
+    LOGI("Setting GL shadow states");
     glShadowSetDepthTest(true);
     ::glDepthFunc(GL_LEQUAL);
-#ifdef GLES
     glClearDepthf(1.0f);
-#else
-    glClearDepth(1.0);
-#endif
     glShadowSetBlend(true);
     glShadowSetBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glShadowSetCull(true);
     ::glCullFace(GL_BACK);
     ::glClearColor(0, 0, 0, 1);
     glViewport(0, 0, s_windowWidth, s_windowHeight);
+
+    LOGI("Building shaders...");
     s_shader.build(VERT_SRC, FRAG_SRC);
+
+    LOGI("Initializing Streaming VAOs...");
     initStreamingVAOs();
 
     s_mainThreadId = std::this_thread::get_id();
     s_mainThreadSet = true;
     s_glCtx = s_glContext;
 
+    LOGI("Making current...");
     SDL_GL_MakeCurrent(s_window, s_glContext);
-    for (int i = 0; i < MAX_SHARED_CTXS; i++) {
-        SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
-        SDL_Window* w = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED,
-                                         SDL_WINDOWPOS_UNDEFINED, 1, 1,
-                                         SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
-        if (!w) break;
-        SDL_GLContext ctx = SDL_GL_CreateContext(w);
-        if (!ctx) {
-            SDL_DestroyWindow(w);
-            break;
-        }
-        s_sharedWins[s_sharedCtxCount] = w;
-        s_sharedCtxs[s_sharedCtxCount] = ctx;
-        s_sharedCtxCount++;
-    }
-    SDL_GL_MakeCurrent(s_window, s_glContext);
+
+    LOGI("Pushing render state...");
     pushRenderState();
 
 #ifdef ENABLE_VSYNC
@@ -716,6 +630,7 @@ void GLRenderer::Initialise() {
 #else
     SDL_GL_SetSwapInterval(0);
 #endif
+    LOGI("GLRenderer::Initialise complete!");
 }
 
 void GLRenderer::InitialiseContext() {
@@ -726,33 +641,20 @@ void GLRenderer::InitialiseContext() {
         s_glCtx = s_glContext;
         return;
     }
-
-    if (s_glCtx) {
-        for (int i = 0; i < s_sharedCtxCount; i++) {
-            if (s_sharedCtxs[i] == s_glCtx) {
-                SDL_GL_MakeCurrent(s_sharedWins[i], s_glCtx);
-                return;
-            }
-        }
-        return;
-    }
-
-    SDL_GLContext shared = nullptr;
-    {
-        std::lock_guard<std::mutex> lk(s_sharedMtx);
-        if (s_nextSharedCtx < s_sharedCtxCount)
-            shared = s_sharedCtxs[s_nextSharedCtx++];
-    }
-    if (!shared) return;
-
-    for (int i = 0; i < s_sharedCtxCount; i++) {
-        if (s_sharedCtxs[i] == shared)
-            SDL_GL_MakeCurrent(s_sharedWins[i], shared);
-    }
-    s_glCtx = shared;
 }
 
 void GLRenderer::StartFrame() {
+    {
+        std::lock_guard<std::mutex> lk(s_glCallMtx);
+        if (!s_vboDeleteQueue.empty()) {
+            glDeleteBuffers(s_vboDeleteQueue.size(), s_vboDeleteQueue.data());
+            s_vboDeleteQueue.clear();
+        }
+        if (!s_vaoDeleteQueue.empty()) {
+            glDeleteVertexArrays(s_vaoDeleteQueue.size(), s_vaoDeleteQueue.data());
+            s_vaoDeleteQueue.clear();
+        }
+    }
     Set_matrixDirty();
     int w, h;
     SDL_GetWindowSize(s_window, &w, &h);
@@ -784,14 +686,8 @@ void GLRenderer::SetWindowSize(int w, int h) {
 }
 
 void GLRenderer::SetFullscreen(bool fs) { s_fullscreen = fs; }
-
 bool GLRenderer::ShouldClose() { return !s_window || s_shouldClose; }
-
-void GLRenderer::GetFramebufferSize(int& w, int& h) {
-    w = s_windowWidth;
-    h = s_windowHeight;
-}
-
+void GLRenderer::GetFramebufferSize(int& w, int& h) { w = s_windowWidth; h = s_windowHeight; }
 void GLRenderer::Close() { s_window = nullptr; }
 
 void GLRenderer::Shutdown() {
@@ -799,6 +695,14 @@ void GLRenderer::Shutdown() {
         std::lock_guard<std::mutex> lk(s_glCallMtx);
         for (auto& kv : s_chunkPool) kv.second.destroy();
         s_chunkPool.clear();
+        if (!s_vboDeleteQueue.empty()) {
+            glDeleteBuffers(s_vboDeleteQueue.size(), s_vboDeleteQueue.data());
+            s_vboDeleteQueue.clear();
+        }
+        if (!s_vaoDeleteQueue.empty()) {
+            glDeleteVertexArrays(s_vaoDeleteQueue.size(), s_vaoDeleteQueue.data());
+            s_vaoDeleteQueue.clear();
+        }
     }
     glDeleteVertexArrays(1, &s_sVAO_std);
     glDeleteBuffers(1, &s_sVBO_std);
@@ -811,15 +715,10 @@ void GLRenderer::Shutdown() {
         SDL_DestroyWindow(s_window);
         s_window = nullptr;
     }
-    for (int i = 0; i < s_sharedCtxCount; i++) {
-        if (s_sharedCtxs[i]) SDL_GL_DeleteContext(s_sharedCtxs[i]);
-        if (s_sharedWins[i]) SDL_DestroyWindow(s_sharedWins[i]);
-    }
     SDL_Quit();
 }
 
-void GLRenderer::DrawVertices(ePrimitiveType ptype, int count, void* dataIn,
-                              eVertexType vType, ePixelShaderType) {
+void GLRenderer::DrawVertices(ePrimitiveType ptype, int count, void* dataIn, eVertexType vType, ePixelShaderType) {
     if (count <= 0 || !dataIn) return;
 
     bool wasQuad = isQuadPrim((int)ptype);
@@ -835,36 +734,24 @@ void GLRenderer::DrawVertices(ePrimitiveType ptype, int count, void* dataIn,
         uint8_t* dst = stdData.data();
         for (int i = 0; i < count; i++) {
             float* dstF = (float*)dst;
-
-            // Position: int16 / 1024
             dstF[0] = src[0] / 1024.0f;
             dstF[1] = src[1] / 1024.0f;
             dstF[2] = src[2] / 1024.0f;
-
-            // int16 / 8192
             dstF[3] = src[4] / 8192.0f;
             dstF[4] = src[5] / 8192.0f;
-
-            // RGB565 −32768
             {
                 uint16_t packed = (uint16_t)((int)src[3] + 32768);
                 dst[20] = 255;
-                dst[21] = (uint8_t)((packed & 0x1F) * 255 / 31);          // B
-                dst[22] = (uint8_t)(((packed >> 5) & 0x3F) * 255 / 63);   // G
-                dst[23] = (uint8_t)(((packed >> 11) & 0x1F) * 255 / 31);  // R
+                dst[21] = (uint8_t)((packed & 0x1F) * 255 / 31);
+                dst[22] = (uint8_t)(((packed >> 5) & 0x3F) * 255 / 63);
+                dst[23] = (uint8_t)(((packed >> 11) & 0x1F) * 255 / 31);
             }
-            dst[24] = 0;
-            dst[25] = 127;  // +Y (up)
-            dst[26] = 0;
-            dst[27] = 0;
-
-            // Lightmap
+            dst[24] = 0; dst[25] = 127; dst[26] = 0; dst[27] = 0;
             {
                 int16_t* dstS = (int16_t*)(dst + 28);
                 dstS[0] = src[6];
                 dstS[1] = src[7];
             }
-
             src += 8;
             dst += 32;
         }
@@ -883,11 +770,9 @@ void GLRenderer::DrawVertices(ePrimitiveType ptype, int count, void* dataIn,
             const uint8_t* v1 = src + (q * 4 + 1) * stride;
             const uint8_t* v2 = src + (q * 4 + 2) * stride;
             const uint8_t* v3 = src + (q * 4 + 3) * stride;
-            // Triangle 1: 0,1,2
             memcpy(dst + 0 * stride, v0, stride);
             memcpy(dst + 1 * stride, v1, stride);
             memcpy(dst + 2 * stride, v2, stride);
-            // Triangle 2: 0,2,3
             memcpy(dst + 3 * stride, v0, stride);
             memcpy(dst + 4 * stride, v2, stride);
             memcpy(dst + 5 * stride, v3, stride);
@@ -902,25 +787,19 @@ void GLRenderer::DrawVertices(ePrimitiveType ptype, int count, void* dataIn,
 
     if (s_recListId >= 0) {
         int first = (int)(s_recVerts.size() / stride);
-        s_recVerts.insert(s_recVerts.end(), (const uint8_t*)dataIn,
-                          (const uint8_t*)dataIn + bytes);
+        s_recVerts.insert(s_recVerts.end(), (const uint8_t*)dataIn, (const uint8_t*)dataIn + bytes);
         s_recDraws.push_back({glMode, first, (GLsizei)count});
         return;
     }
 
     std::lock_guard<std::mutex> lk(s_glCallMtx);
     pushRenderState();
-
     glBindVertexArray(s_sVAO_std);
     glBindBuffer(GL_ARRAY_BUFFER, s_sVBO_std);
-
-    // Standard orphaning
     glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)bytes, nullptr, GL_STREAM_DRAW);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)bytes, dataIn);
     s_streamVBOSize = (GLsizeiptr)bytes;
-
     glDrawArrays(glMode, 0, count);
-
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
@@ -1001,38 +880,29 @@ bool GLRenderer::CBuffCall(int index, bool) {
         if (cb.rawVerts.empty()) {
             return false;
         }
-
         glGenVertexArrays(1, &cb.vao);
         glGenBuffers(1, &cb.vbo);
         glBindVertexArray(cb.vao);
         glBindBuffer(GL_ARRAY_BUFFER, cb.vbo);
-        glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)cb.rawVerts.size(),
-                     cb.rawVerts.data(), GL_STATIC_DRAW);
-        bindStdAttribs();  // single time bindstdattrib
+        glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)cb.rawVerts.size(), cb.rawVerts.data(), GL_STATIC_DRAW);
+        bindStdAttribs();
         glBindVertexArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
-
         cb.rawVerts.clear();
         cb.rawVerts.shrink_to_fit();
         cb.vboReady = true;
     }
-
     pushRenderState();
-
     glBindVertexArray(cb.vao);
     for (const auto& dc : cb.draws) glDrawArrays(dc.prim, dc.first, dc.count);
     glBindVertexArray(0);
-
     return true;
 }
 
 void GLRenderer::MatrixMode(int t) {
-    if (t == GL_PROJECTION)
-        s_matMode = 1;
-    else if (t == GL_TEXTURE)
-        s_matMode = 2;
-    else
-        s_matMode = 0;
+    if (t == GL_PROJECTION) s_matMode = 1;
+    else if (t == GL_TEXTURE) s_matMode = 2;
+    else s_matMode = 0;
 }
 
 void GLRenderer::MatrixSetIdentity() {
@@ -1042,8 +912,6 @@ void GLRenderer::MatrixSetIdentity() {
 }
 void GLRenderer::MatrixPush() {
     activeStack().push();
-    // push doesn't change cur() so no dirty needed but mark anyway to be safe
-    // ;w;
     markMatrixDirty();
     if (s_matMode == 0) markNormalDirty();
 }
@@ -1071,8 +939,7 @@ void GLRenderer::MatrixPerspective(float fovy, float asp, float zn, float zf) {
     s_proj.cur() = glm::perspective(glm::radians(fovy), asp, zn, zf);
     markMatrixDirty();
 }
-void GLRenderer::MatrixOrthogonal(float l, float r, float b, float t, float zn,
-                                  float zf) {
+void GLRenderer::MatrixOrthogonal(float l, float r, float b, float t, float zn, float zf) {
     s_proj.cur() = glm::ortho(l, r, b, t, zn, zf);
     markMatrixDirty();
 }
@@ -1083,19 +950,16 @@ void GLRenderer::MatrixMult(float* m) {
 }
 const float* GLRenderer::MatrixGet(int t) {
     static float buf[16];
-    glm::mat4* m = (t == GL_MODELVIEW_MATRIX)    ? &s_mv.cur()
-                   : (t == GL_PROJECTION_MATRIX) ? &s_proj.cur()
-                                                 : nullptr;
+    glm::mat4* m = (t == GL_MODELVIEW_MATRIX) ? &s_mv.cur() : (t == GL_PROJECTION_MATRIX) ? &s_proj.cur() : nullptr;
     if (m) memcpy(buf, glm::value_ptr(*m), 64);
     return buf;
 }
 
 void GLRenderer::Set_matrixDirty() {
-    // iggy wipes opengl state
     s_boundProgram = 0;
     s_rs_dirty_mask = 0xFFFFFFFF;
     s_gl_shadow_mask = 0;
-    s_normalMatDirty = true;  // normal matrix dirt after iggy reset
+    s_normalMatDirty = true;
     s_matDirty = true;
     s_chunkOffsetValid = false;
     if (s_shader.prog) {
@@ -1105,9 +969,7 @@ void GLRenderer::Set_matrixDirty() {
 }
 
 void GLRenderer::Clear(int f) { glClear(f); }
-void GLRenderer::SetClearColour(const float c[4]) {
-    glClearColor(c[0], c[1], c[2], c[3]);
-}
+void GLRenderer::SetClearColour(const float c[4]) { glClearColor(c[0], c[1], c[2], c[3]); }
 bool GLRenderer::IsWidescreen() { return true; }
 bool GLRenderer::IsHiDef() { return true; }
 void GLRenderer::StateSetColour(float r, float g, float b, float a) {
@@ -1128,26 +990,14 @@ void GLRenderer::SetChunkOffset(float x, float y, float z) {
         glUniform3f(s_shader.uChunkOffset, x, y, z);
     }
 }
-void GLRenderer::StateSetDepthMask(bool e) {
-    glShadowSetDepthMask(e ? GL_TRUE : GL_FALSE);
-}
+void GLRenderer::StateSetDepthMask(bool e) { glShadowSetDepthMask(e ? GL_TRUE : GL_FALSE); }
 void GLRenderer::StateSetBlendEnable(bool e) { glShadowSetBlend(e); }
 void GLRenderer::StateSetBlendFunc(int s, int d) { glShadowSetBlendFunc(s, d); }
 void GLRenderer::StateSetDepthFunc(int f) { ::glDepthFunc(f); }
 void GLRenderer::StateSetFaceCull(bool e) { glShadowSetCull(e); }
-void GLRenderer::StateSetFaceCullCW(bool e) {
-    glShadowSetFrontFace(e ? GL_CW : GL_CCW);
-}
-void GLRenderer::StateSetLineWidth(float w) {
-#ifndef GLES
-    glShadowSetLineWidth(w);
-#else
-    (void)w;
-#endif
-}
-void GLRenderer::StateSetWriteEnable(bool r, bool g, bool b, bool a) {
-    glShadowSetColorMask(r, g, b, a);
-}
+void GLRenderer::StateSetFaceCullCW(bool e) { glShadowSetFrontFace(e ? GL_CW : GL_CCW); }
+void GLRenderer::StateSetLineWidth(float w) { (void)w; }
+void GLRenderer::StateSetWriteEnable(bool r, bool g, bool b, bool a) { glShadowSetColorMask(r, g, b, a); }
 void GLRenderer::StateSetDepthTestEnable(bool e) { glShadowSetDepthTest(e); }
 void GLRenderer::StateSetAlphaTestEnable(bool e) {
     float v = e ? 0.1f : 0.f;
@@ -1162,9 +1012,7 @@ void GLRenderer::StateSetAlphaFunc(int, float p) {
         markDirty(DIRTY_ALPHA);
     }
 }
-void GLRenderer::StateSetDepthSlopeAndBias(float s, float b) {
-    glShadowSetPolygonOffset(s, b);
-}
+void GLRenderer::StateSetDepthSlopeAndBias(float s, float b) { glShadowSetPolygonOffset(s, b); }
 void GLRenderer::StateSetBlendFactor(unsigned int col) {
     float a = ((col >> 24) & 0xFF) / 255.f;
     float r = ((col >> 16) & 0xFF) / 255.f;
@@ -1179,10 +1027,7 @@ void GLRenderer::StateSetFogEnable(bool e) {
     }
 }
 void GLRenderer::StateSetFogMode(int mode) {
-    int v = (mode == GL_LINEAR) ? 1
-            : (mode == GL_EXP)  ? 2
-            : (mode == 0x0801)  ? 3
-                                : 0;
+    int v = (mode == GL_LINEAR) ? 1 : (mode == GL_EXP) ? 2 : (mode == 0x0801) ? 3 : 0;
     if (s_rs.fogMode != v) {
         s_rs.fogMode = v;
         markDirty(DIRTY_FOG);
@@ -1236,20 +1081,12 @@ void GLRenderer::StateSetLightAmbientColour(float r, float g, float b) {
 void GLRenderer::StateSetLightDirection(int light, float x, float y, float z) {
     glm::vec3 d = glm::normalize(glm::mat3(s_mv.cur()) * glm::vec3(x, y, z));
     if (light == 0) {
-        if (s_rs.l0 != d) {
-            s_rs.l0 = d;
-            markDirty(DIRTY_LIGHTING);
-        }
+        if (s_rs.l0 != d) { s_rs.l0 = d; markDirty(DIRTY_LIGHTING); }
     } else {
-        if (s_rs.l1 != d) {
-            s_rs.l1 = d;
-            markDirty(DIRTY_LIGHTING);
-        }
+        if (s_rs.l1 != d) { s_rs.l1 = d; markDirty(DIRTY_LIGHTING); }
     }
 }
-void GLRenderer::StateSetViewport(eViewportType) {
-    glViewport(0, 0, s_windowWidth, s_windowHeight);
-}
+void GLRenderer::StateSetViewport(eViewportType) { glViewport(0, 0, s_windowWidth, s_windowHeight); }
 void GLRenderer::StateSetVertexTextureUV(float u, float v) {
     glm::vec2 val = {u, v};
     if (s_rs.globalLM != val) {
@@ -1257,8 +1094,7 @@ void GLRenderer::StateSetVertexTextureUV(float u, float v) {
         markDirty(DIRTY_GLOBAL_LM);
     }
 }
-void GLRenderer::StateSetStencil(int fn, uint8_t ref, uint8_t fmask,
-                                 uint8_t wmask) {
+void GLRenderer::StateSetStencil(int fn, uint8_t ref, uint8_t fmask, uint8_t wmask) {
     glShadowSetStencil(fn, ref, fmask, wmask);
 }
 void GLRenderer::StateSetTextureEnable(bool e) {
@@ -1304,9 +1140,7 @@ void GLRenderer::TextureBindVertex(int idx, bool scaleLight) {
         s_rs.useLightmap = true;
         markDirty(DIRTY_TEXTURE);
     }
-    glm::vec4 newLmt = scaleLight
-                           ? glm::vec4{1.f, 1.f, 8.f / 256.f, 8.f / 256.f}
-                           : glm::vec4{1.f, 1.f, 0.f, 0.f};
+    glm::vec4 newLmt = scaleLight ? glm::vec4{1.f, 1.f, 8.f / 256.f, 8.f / 256.f} : glm::vec4{1.f, 1.f, 0.f, 0.f};
     if (s_rs.lmt != newLmt) {
         s_rs.lmt = newLmt;
         markDirty(DIRTY_LMT);
@@ -1314,96 +1148,65 @@ void GLRenderer::TextureBindVertex(int idx, bool scaleLight) {
 }
 void GLRenderer::TextureSetTextureLevels(int l) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, l > 0 ? l - 1 : 0);
-    if (l > 1)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                        GL_NEAREST_MIPMAP_LINEAR);
-    else
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    if (l > 1) glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    else glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 }
 int GLRenderer::TextureGetTextureLevels() { return 1; }
 void GLRenderer::TextureData(int w, int h, void* d, int lvl, eTextureFormat) {
-    glTexImage2D(GL_TEXTURE_2D, lvl, GL_RGBA, w, h, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, d);
+    glTexImage2D(GL_TEXTURE_2D, lvl, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, d);
     if (lvl == 0) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         GLint maxLvl = 0;
         glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, &maxLvl);
-        if (maxLvl == 0)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        if (maxLvl == 0) glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     }
 }
-void GLRenderer::TextureDataUpdate(int xo, int yo, int w, int h, void* d,
-                                   int lvl) {
-    glTexSubImage2D(GL_TEXTURE_2D, lvl, xo, yo, w, h, GL_RGBA, GL_UNSIGNED_BYTE,
-                    d);
+void GLRenderer::TextureDataUpdate(int xo, int yo, int w, int h, void* d, int lvl) {
+    glTexSubImage2D(GL_TEXTURE_2D, lvl, xo, yo, w, h, GL_RGBA, GL_UNSIGNED_BYTE, d);
 }
-void GLRenderer::TextureSetParam(int p, int v) {
-    glTexParameteri(GL_TEXTURE_2D, p, v);
-}
+void GLRenderer::TextureSetParam(int p, int v) { glTexParameteri(GL_TEXTURE_2D, p, v); }
 
-static int stbLoad(unsigned char* data, int w, int h, D3DXIMAGE_INFO* info,
-                   int** out) {
+static int stbLoad(unsigned char* data, int w, int h, D3DXIMAGE_INFO* info, int** out) {
     int* px = new int[w * h];
     for (int i = 0; i < w * h; i++) {
-        unsigned char r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2],
-                      a = data[i * 4 + 3];
+        unsigned char r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2], a = data[i * 4 + 3];
         px[i] = (a << 24) | (r << 16) | (g << 8) | b;
     }
-    if (info) {
-        info->Width = w;
-        info->Height = h;
-    }
+    if (info) { info->Width = w; info->Height = h; }
     *out = px;
-    return 0;  // Success
+    return 0;
 }
 int GLRenderer::LoadTextureData(const char* fn, D3DXIMAGE_INFO* i, int** o) {
     int w, h, c;
     unsigned char* d = stbi_load(fn, &w, &h, &c, 4);
-    if (!d) return -1;  // Failure
+    if (!d) return -1;
     int hr = stbLoad(d, w, h, i, o);
     stbi_image_free(d);
     return hr;
 }
-int GLRenderer::LoadTextureData(uint8_t* pb, uint32_t nb, D3DXIMAGE_INFO* i,
-                                int** o) {
+int GLRenderer::LoadTextureData(uint8_t* pb, uint32_t nb, D3DXIMAGE_INFO* i, int** o) {
     int w, h, c;
     unsigned char* d = stbi_load_from_memory(pb, (int)nb, &w, &h, &c, 4);
-    if (!d) return -1;  // Failure
+    if (!d) return -1;
     int hr = stbLoad(d, w, h, i, o);
     stbi_image_free(d);
     return hr;
 }
 
-// TODO: TO REMOVE SOON.
 void GLRenderer::UpdateGamma(unsigned short usGamma) {
     constexpr unsigned short GAMMA_MAX = 32768;
     s_rs.gamma = 0.5f + ((float)(usGamma) * (1.0f / GAMMA_MAX));
 }
-
-// MARK: C hooks
 
 int glGenTextures_4J() {
     GLuint id = 0;
     ::glGenTextures(1, &id);
     return (int)id;
 }
+void glGenTextures_4J(int n, unsigned int* textures) { ::glGenTextures(n, textures); }
+void glDeleteTextures_4J(int id) { GLuint uid = (GLuint)id; ::glDeleteTextures(1, &uid); }
+void glDeleteTextures_4J(int n, const unsigned int* textures) { ::glDeleteTextures(n, textures); }
 
-void glGenTextures_4J(int n, unsigned int* textures) {
-    ::glGenTextures(n, textures);
-}
-
-void glDeleteTextures_4J(int id) {
-    GLuint uid = (GLuint)id;
-    ::glDeleteTextures(1, &uid);
-}
-
-void glDeleteTextures_4J(int n, const unsigned int* textures) {
-    ::glDeleteTextures(n, textures);
-}
-
-// MARK: LinuxStubs
-
-#ifdef GLES
 extern "C" {
 extern void glClearDepthf(float depth);
 void glClearDepth(double depth) { glClearDepthf((float)depth); }
@@ -1416,14 +1219,9 @@ void glVertexPointer(int, unsigned int, int, const void*) {}
 void glEndList(void) {}
 void glCallLists(int, unsigned int, const void*) {}
 }
-#endif
 
-inline int* getIntPtr(IntBuffer* buf) {
-    return buf ? (int*)buf->getBuffer() + buf->position() : nullptr;
-}
-inline void* getBytePtr(ByteBuffer* buf) {
-    return buf ? (char*)buf->getBuffer() + buf->position() : nullptr;
-}
+inline int* getIntPtr(IntBuffer* buf) { return buf ? (int*)buf->getBuffer() + buf->position() : nullptr; }
+inline void* getBytePtr(ByteBuffer* buf) { return buf ? (char*)buf->getBuffer() + buf->position() : nullptr; }
 
 void glGenTextures_4J(IntBuffer* buf) {
     if (!buf) return;
@@ -1431,69 +1229,47 @@ void glGenTextures_4J(IntBuffer* buf) {
     int* dst = getIntPtr(buf);
     for (int i = 0; i < n; i++) dst[i] = PlatformRenderer.TextureCreate();
 }
-
 void glDeleteTextures_4J(IntBuffer* buf) {
     if (!buf) return;
     int n = buf->limit() - buf->position();
     int* src = getIntPtr(buf);
     for (int i = 0; i < n; i++) PlatformRenderer.TextureFree(src[i]);
 }
-
-void glTexImage2D_4J(int target, int level, int internalformat, int width,
-                     int height, int border, int format, int type,
-                     ByteBuffer* pixels) {
-    (void)target;
-    (void)internalformat;
-    (void)border;
-    (void)format;
-    (void)type;
-    PlatformRenderer.TextureData(width, height, getBytePtr(pixels), level,
-                                 IPlatformRenderer::TEXTURE_FORMAT_RxGyBzAw);
+void glTexImage2D_4J(int target, int level, int internalformat, int width, int height, int border, int format, int type, ByteBuffer* pixels) {
+    (void)target; (void)internalformat; (void)border; (void)format; (void)type;
+    PlatformRenderer.TextureData(width, height, getBytePtr(pixels), level, IPlatformRenderer::TEXTURE_FORMAT_RxGyBzAw);
 }
-
 void glLight_4J(int light, int pname, FloatBuffer* params) {
     const float* p = params->_getDataPointer();
     int idx = (light == 0x4001) ? 1 : 0;
-    if (pname == 0x1203)
-        PlatformRenderer.StateSetLightDirection(idx, p[0], p[1], p[2]);
-    else if (pname == 0x1201)
-        PlatformRenderer.StateSetLightColour(idx, p[0], p[1], p[2]);
-    else if (pname == 0x1200)
-        PlatformRenderer.StateSetLightAmbientColour(p[0], p[1], p[2]);
+    if (pname == 0x1203) PlatformRenderer.StateSetLightDirection(idx, p[0], p[1], p[2]);
+    else if (pname == 0x1201) PlatformRenderer.StateSetLightColour(idx, p[0], p[1], p[2]);
+    else if (pname == 0x1200) PlatformRenderer.StateSetLightAmbientColour(p[0], p[1], p[2]);
 }
-
 void glLightModel_4J(int pname, FloatBuffer* params) {
     if (pname == 0x0B53) {
         const float* p = params->_getDataPointer();
         PlatformRenderer.StateSetLightAmbientColour(p[0], p[1], p[2]);
     }
 }
-
 void glFog_4J(int pname, FloatBuffer* params) {
     const float* p = params->_getDataPointer();
     if (pname == 0x0B66) PlatformRenderer.StateSetFogColour(p[0], p[1], p[2]);
 }
-
 void glGetFloat_4J(int pname, FloatBuffer* params) {
     const float* m = PlatformRenderer.MatrixGet(pname);
     if (m) memcpy(params->_getDataPointer(), m, 16 * sizeof(float));
 }
-
 void glCallLists_4J(IntBuffer* lists) {
     if (!lists) return;
     int count = lists->limit() - lists->position();
     int* ids = getIntPtr(lists);
-    for (int i = 0; i < count; i++)
-        (void)PlatformRenderer.CBuffCall(ids[i], false);
+    for (int i = 0; i < count; i++) (void)PlatformRenderer.CBuffCall(ids[i], false);
 }
-
 void glReadPixels_4J(int x, int y, int w, int h, int f, int t, ByteBuffer* p) {
-    (void)f;
-    (void)t;
+    (void)f; (void)t;
     PlatformRenderer.ReadPixels(x, y, w, h, getBytePtr(p));
 }
-
-// dead stubs
 void glTexCoordPointer_4J(int, int, FloatBuffer*) {}
 void glNormalPointer_4J(int, ByteBuffer*) {}
 void glColorPointer_4J(int, bool, int, ByteBuffer*) {}
@@ -1501,9 +1277,4 @@ void glVertexPointer_4J(int, int, FloatBuffer*) {}
 void glEndList_4J(int) {}
 void glTexGen_4J(int, int, FloatBuffer*) {}
 
-#include <stdio.h>
-#include <string.h>
-
-void glGetFloat(int pname, FloatBuffer* params) {
-    glGetFloat_4J(pname, params);
-}
+void glGetFloat(int pname, FloatBuffer* params) { glGetFloat_4J(pname, params); }
