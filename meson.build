@@ -21,6 +21,15 @@ if host_machine.system() == 'android' or get_option('renderer') == 'gles'
     meson.override_dependency('glew', declare_dependency())
     meson.override_dependency('gl', declare_dependency())
     meson.override_dependency('glu', declare_dependency())
+
+    add_project_arguments(
+        '-include', meson.project_source_root() / 'targets/platform/renderer/gl/gl3_loader.h',
+        language: ['cpp', 'c']
+    )
+endif
+
+if host_machine.system() == 'darwin'
+    add_languages('objc', native: false)
 endif
 
 if meson.get_compiler('cpp').get_id() == 'msvc'
