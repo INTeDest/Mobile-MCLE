@@ -27,3 +27,30 @@ static inline bool gl3_load() {
 #ifndef GL_QUADS
 #define GL_QUADS 0x0007
 #endif
+
+#ifndef GL_MODELVIEW
+#define GL_MODELVIEW 0x1700
+#endif
+#ifndef GL_PROJECTION
+#define GL_PROJECTION 0x1701
+#endif
+#ifndef GL_TEXTURE
+#define GL_TEXTURE 0x1702
+#endif
+
+#ifndef GL_MODELVIEW_MATRIX
+#define GL_MODELVIEW_MATRIX 0x0BA6
+#endif
+#ifndef GL_PROJECTION_MATRIX
+#define GL_PROJECTION_MATRIX 0x0BA7
+#endif
+#ifndef GL_TEXTURE_MATRIX
+#define GL_TEXTURE_MATRIX 0x0BA8
+#endif
+
+#ifndef GL_EXP
+#define GL_EXP 0x0800
+#endif
+#ifndef GL_LINEAR
+#define GL_LINEAR 0x2601
+#endif
