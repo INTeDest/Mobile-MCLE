@@ -6,8 +6,73 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#ifndef GL_GLEXT_PROTOTYPES
+#define GL_GLEXT_PROTOTYPES 1
+#endif
+
 #ifndef APIENTRY
 #define APIENTRY
+#endif
+
+#ifndef GLAPI
+#define GLAPI
+#endif
+
+#ifndef GLAPIENTRY
+#define GLAPIENTRY
+#endif
+
+#ifndef __cplusplus
+// Prevent Desktop GL headers (like SDL_opengl.h) from loading in C files on Android
+#define __SDL_opengl_h__
+#define __gl_h_
+#define __GL_H__
+#define __glew_h__
+#define __GLEW_H__
+
+// In C files (e.g. Iggy UI gdraw.c), prevent static extension pointer variable declarations
+// from clashing with core GLES3 function declarations in <GLES3/gl3.h>
+#define glGenBuffers gdraw_ptr_glGenBuffers
+#define glDeleteBuffers gdraw_ptr_glDeleteBuffers
+#define glBindBuffer gdraw_ptr_glBindBuffer
+#define glBufferData gdraw_ptr_glBufferData
+#define glBufferSubData gdraw_ptr_glBufferSubData
+#define glMapBuffer gdraw_ptr_glMapBuffer
+#define glUnmapBuffer gdraw_ptr_glUnmapBuffer
+#define glVertexAttribPointer gdraw_ptr_glVertexAttribPointer
+#define glEnableVertexAttribArray gdraw_ptr_glEnableVertexAttribArray
+#define glDisableVertexAttribArray gdraw_ptr_glDisableVertexAttribArray
+#define glCreateShader gdraw_ptr_glCreateShader
+#define glDeleteShader gdraw_ptr_glDeleteShader
+#define glShaderSource gdraw_ptr_glShaderSource
+#define glCompileShader gdraw_ptr_glCompileShader
+#define glGetShaderiv gdraw_ptr_glGetShaderiv
+#define glGetShaderInfoLog gdraw_ptr_glGetShaderInfoLog
+#define glCreateProgram gdraw_ptr_glCreateProgram
+#define glDeleteProgram gdraw_ptr_glDeleteProgram
+#define glAttachShader gdraw_ptr_glAttachShader
+#define glLinkProgram gdraw_ptr_glLinkProgram
+#define glUseProgram gdraw_ptr_glUseProgram
+#define glGetProgramiv gdraw_ptr_glGetProgramiv
+#define glGetProgramInfoLog gdraw_ptr_glGetProgramInfoLog
+#define glGetUniformLocation gdraw_ptr_glGetUniformLocation
+#define glGetAttribLocation gdraw_ptr_glGetAttribLocation
+#define glUniform1i gdraw_ptr_glUniform1i
+#define glUniform1f gdraw_ptr_glUniform1f
+#define glUniform2f gdraw_ptr_glUniform2f
+#define glUniform3f gdraw_ptr_glUniform3f
+#define glUniform4f gdraw_ptr_glUniform4f
+#define glUniform1fv gdraw_ptr_glUniform1fv
+#define glUniform2fv gdraw_ptr_glUniform2fv
+#define glUniform3fv gdraw_ptr_glUniform3fv
+#define glUniform4fv gdraw_ptr_glUniform4fv
+#define glUniformMatrix4fv gdraw_ptr_glUniformMatrix4fv
+#define glGenVertexArrays gdraw_ptr_glGenVertexArrays
+#define glBindVertexArray gdraw_ptr_glBindVertexArray
+#define glDeleteVertexArrays gdraw_ptr_glDeleteVertexArrays
+#define glActiveTexture gdraw_ptr_glActiveTexture
+#define glBlendEquation gdraw_ptr_glBlendEquation
+#define glBlendFuncSeparate gdraw_ptr_glBlendFuncSeparate
 #endif
 
 #ifdef __cplusplus
