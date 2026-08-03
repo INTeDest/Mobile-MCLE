@@ -24,7 +24,7 @@ if host_machine.system() == 'android' or get_option('renderer') == 'gles'
 
     add_project_arguments(
         '-include', meson.project_source_root() / 'targets/platform/renderer/gl/gl3_loader.h',
-        language: ['cpp', 'c']
+        language: 'cpp'
     )
 endif
 

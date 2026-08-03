@@ -3,7 +3,7 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 #include <EGL/egl.h>
-#include <cstdio>
+#include <stdio.h>
 
 #ifdef __cplusplus
 #include <atomic>
@@ -43,11 +43,11 @@ struct atomic_ref {
 }
 #endif
 
-static inline bool gl3_load() {
+static inline bool gl3_load(void) {
     return true;
 }
 
-// Inline compatibility functions for legacy GL calls in Minecraft code
+// Inline compatibility functions for legacy GL calls in C and C++
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -78,7 +78,7 @@ static inline void glColor4fv(const float* v) { (void)v; }
 static inline void glRectf(float x1, float y1, float x2, float y2) { (void)x1; (void)y1; (void)x2; (void)y2; }
 
 static inline void glClearDepth(double depth) {
-    glClearDepthf(static_cast<float>(depth));
+    glClearDepthf((float)depth);
 }
 
 static inline void glColorMaterial(GLenum face, GLenum mode) {
