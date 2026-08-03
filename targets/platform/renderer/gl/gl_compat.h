@@ -1,6 +1,5 @@
 #pragma once
 
-// OpenGL header selection
 #if defined(__ANDROID__) || defined(GLES)
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
@@ -8,8 +7,6 @@
 #include <GL/glew.h>
 #endif
 
-#include <cstdint>
-#include <cstdlib>
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -51,258 +48,91 @@ struct atomic_ref {
 }
 #endif
 
-// ============================================================================
-// Constant definitions (merged from both files)
-// ============================================================================
-
-#ifndef GL_MODELVIEW_MATRIX
-#define GL_MODELVIEW_MATRIX 0x0BA6
-#endif
-#ifndef GL_PROJECTION_MATRIX
-#define GL_PROJECTION_MATRIX 0x0BA7
-#endif
-#ifndef GL_MODELVIEW
-#define GL_MODELVIEW 0x1700
-#endif
-#ifndef GL_PROJECTION
-#define GL_PROJECTION 0x1701
-#endif
-#ifndef GL_TEXTURE
-#define GL_TEXTURE 0x1702
+// Inline compatibility functions for legacy GL calls in C and C++
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#ifndef GL_S
-#define GL_S 0x2000
-#endif
-#ifndef GL_T
-#define GL_T 0x2001
-#endif
-#ifndef GL_R
-#define GL_R 0x2002
-#endif
-#ifndef GL_Q
-#define GL_Q 0x2003
+static inline void glBegin(GLenum mode) { (void)mode; }
+static inline void glEnd(void) {}
+
+static inline void glVertex2f(float x, float y) { (void)x; (void)y; }
+static inline void glVertex2i(int x, int y) { (void)x; (void)y; }
+static inline void glVertex3f(float x, float y, float z) { (void)x; (void)y; (void)z; }
+static inline void glVertex3d(double x, double y, double z) { (void)x; (void)y; (void)z; }
+static inline void glVertex3fv(const float* v) { (void)v; }
+
+static inline void glNormal3f(float nx, float ny, float nz) { (void)nx; (void)ny; (void)nz; }
+static inline void glNormal3fv(const float* v) { (void)v; }
+static inline void glNormal3b(signed char nx, signed char ny, signed char nz) { (void)nx; (void)ny; (void)nz; }
+
+static inline void glTexCoord2f(float s, float t) { (void)s; (void)t; }
+static inline void glTexCoord2d(double s, double t) { (void)s; (void)t; }
+static inline void glTexCoord2fv(const float* v) { (void)v; }
+
+static inline void glColor3f(float r, float g, float b) { (void)r; (void)g; (void)b; }
+static inline void glColor3ub(unsigned char r, unsigned char g, unsigned char b) { (void)r; (void)g; (void)b; }
+static inline void glColor4f(float r, float g, float b, float a) { (void)r; (void)g; (void)b; (void)a; }
+static inline void glColor4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a) { (void)r; (void)g; (void)b; (void)a; }
+static inline void glColor4fv(const float* v) { (void)v; }
+
+static inline void glRectf(float x1, float y1, float x2, float y2) { (void)x1; (void)y1; (void)x2; (void)y2; }
+
+static inline void glClearDepth(double depth) {
+    glClearDepthf((float)depth);
+}
+
+static inline void glColorMaterial(GLenum face, GLenum mode) { (void)face; (void)mode; }
+static inline void glTexGeni(GLenum coord, GLenum pname, int param) { (void)coord; (void)pname; (void)param; }
+static inline void glTexGenfv(GLenum coord, GLenum pname, const float* params) { (void)coord; (void)pname; (void)params; }
+static inline void glTexCoordPointer(int size, GLenum type, int stride, const void* pointer) { (void)size; (void)type; (void)stride; (void)pointer; }
+static inline void glNormalPointer(GLenum type, int stride, const void* pointer) { (void)type; (void)stride; (void)pointer; }
+static inline void glColorPointer(int size, GLenum type, int stride, const void* pointer) { (void)size; (void)type; (void)stride; (void)pointer; }
+static inline void glVertexPointer(int size, GLenum type, int stride, const void* pointer) { (void)size; (void)type; (void)stride; (void)pointer; }
+static inline void glEndList(void) {}
+static inline void glCallLists(int n, GLenum type, const void* lists) { (void)n; (void)type; (void)lists; }
+static inline void glShadeModel(GLenum mode) { (void)mode; }
+static inline void glAlphaFunc(GLenum func, float ref) { (void)func; (void)ref; }
+static inline void glFogf(GLenum pname, float param) { (void)pname; (void)param; }
+static inline void glFogi(GLenum pname, int param) { (void)pname; (void)param; }
+static inline void glFogfv(GLenum pname, const float* params) { (void)pname; (void)params; }
+static inline void glLightfv(GLenum light, GLenum pname, const float* params) { (void)light; (void)pname; (void)params; }
+static inline void glLightf(GLenum light, GLenum pname, float param) { (void)light; (void)pname; (void)param; }
+static inline void glLighti(GLenum light, GLenum pname, int param) { (void)light; (void)pname; (void)param; }
+static inline void glLightModelfv(GLenum pname, const float* params) { (void)pname; (void)params; }
+static inline void glLightModeli(GLenum pname, int param) { (void)pname; (void)param; }
+static inline void glLightModelf(GLenum pname, float param) { (void)pname; (void)param; }
+static inline void glMaterialfv(GLenum face, GLenum pname, const float* params) { (void)face; (void)pname; (void)params; }
+static inline void glMaterialf(GLenum face, GLenum pname, float param) { (void)face; (void)pname; (void)param; }
+static inline void glOrtho(double l, double r, double b, double t, double zn, double zf) { (void)l; (void)r; (void)b; (void)t; (void)zn; (void)zf; }
+static inline void glFrustum(double l, double r, double b, double t, double zn, double zf) { (void)l; (void)r; (void)b; (void)t; (void)zn; (void)zf; }
+static inline void glPushMatrix(void) {}
+static inline void glPopMatrix(void) {}
+static inline void glLoadIdentity(void) {}
+static inline void glMatrixMode(GLenum mode) { (void)mode; }
+static inline void glTranslatef(float x, float y, float z) { (void)x; (void)y; (void)z; }
+static inline void glTranslated(double x, double y, double z) { (void)x; (void)y; (void)z; }
+static inline void glRotatef(float angle, float x, float y, float z) { (void)angle; (void)x; (void)y; (void)z; }
+static inline void glRotated(double angle, double x, double y, double z) { (void)angle; (void)x; (void)y; (void)z; }
+static inline void glScalef(float x, float y, float z) { (void)x; (void)y; (void)z; }
+static inline void glScaled(double x, double y, double z) { (void)x; (void)y; (void)z; }
+static inline void glLoadMatrixf(const float* m) { (void)m; }
+static inline void glLoadMatrixd(const double* m) { (void)m; }
+static inline void glMultMatrixf(const float* m) { (void)m; }
+static inline void glMultMatrixd(const double* m) { (void)m; }
+static inline void glEnableClientState(GLenum array) { (void)array; }
+static inline void glDisableClientState(GLenum array) { (void)array; }
+static inline void glClientActiveTexture(GLenum texture) { (void)texture; }
+static inline GLuint glGenLists(int range) { (void)range; return 1; }
+static inline void glNewList(GLuint list, GLenum mode) { (void)list; (void)mode; }
+static inline void glCallList(GLuint list) { (void)list; }
+static inline void glDeleteLists(GLuint list, int range) { (void)list; (void)range; }
+
+#ifdef __cplusplus
+}
 #endif
 
-#ifndef GL_TEXTURE_GEN_S
-#define GL_TEXTURE_GEN_S 0x0C60
-#endif
-#ifndef GL_TEXTURE_GEN_T
-#define GL_TEXTURE_GEN_T 0x0C61
-#endif
-#ifndef GL_TEXTURE_GEN_Q
-#define GL_TEXTURE_GEN_Q 0x0C63
-#endif
-#ifndef GL_TEXTURE_GEN_R
-#define GL_TEXTURE_GEN_R 0x0C62
-#endif
-
-#ifndef GL_TEXTURE_GEN_MODE
-#define GL_TEXTURE_GEN_MODE 0x2500
-#endif
-#ifndef GL_OBJECT_LINEAR
-#define GL_OBJECT_LINEAR 0x2401
-#endif
-#ifndef GL_EYE_LINEAR
-#define GL_EYE_LINEAR 0x2400
-#endif
-#ifndef GL_OBJECT_PLANE
-#define GL_OBJECT_PLANE 0x2501
-#endif
-#ifndef GL_EYE_PLANE
-#define GL_EYE_PLANE 0x2502
-#endif
-
-#ifndef GL_TEXTURE_2D
-#define GL_TEXTURE_2D 0x0DE1
-#endif
-#ifndef GL_BLEND
-#define GL_BLEND 0x0BE2
-#endif
-#ifndef GL_CULL_FACE
-#define GL_CULL_FACE 0x0B44
-#endif
-#ifndef GL_ALPHA_TEST
-#define GL_ALPHA_TEST 0x0BC0
-#endif
-#ifndef GL_DEPTH_TEST
-#define GL_DEPTH_TEST 0x0B71
-#endif
-#ifndef GL_FOG
-#define GL_FOG 0x0B60
-#endif
-#ifndef GL_LIGHTING
-#define GL_LIGHTING 0x0B50
-#endif
-#ifndef GL_LIGHT0
-#define GL_LIGHT0 0x4000
-#endif
-#ifndef GL_LIGHT1
-#define GL_LIGHT1 0x4001
-#endif
-
-#ifndef CLEAR_DEPTH_FLAG
-#define CLEAR_DEPTH_FLAG 0x00000100
-#endif
-#ifndef CLEAR_COLOUR_FLAG
-#define CLEAR_COLOUR_FLAG 0x00004000
-#endif
-
-#ifndef GL_DEPTH_BUFFER_BIT
-#define GL_DEPTH_BUFFER_BIT 0x00000100
-#endif
-#ifndef GL_COLOR_BUFFER_BIT
-#define GL_COLOR_BUFFER_BIT 0x00004000
-#endif
-
-#ifndef GL_SRC_ALPHA
-#define GL_SRC_ALPHA 0x0302
-#endif
-#ifndef GL_ONE_MINUS_SRC_ALPHA
-#define GL_ONE_MINUS_SRC_ALPHA 0x0303
-#endif
-#ifndef GL_ONE
-#define GL_ONE 1
-#endif
-#ifndef GL_ZERO
-#define GL_ZERO 0
-#endif
-#ifndef GL_DST_ALPHA
-#define GL_DST_ALPHA 0x0304
-#endif
-#ifndef GL_SRC_COLOR
-#define GL_SRC_COLOR 0x0300
-#endif
-#ifndef GL_DST_COLOR
-#define GL_DST_COLOR 0x0306
-#endif
-#ifndef GL_ONE_MINUS_DST_COLOR
-#define GL_ONE_MINUS_DST_COLOR 0x0307
-#endif
-#ifndef GL_ONE_MINUS_SRC_COLOR
-#define GL_ONE_MINUS_SRC_COLOR 0x0301
-#endif
-#ifndef GL_CONSTANT_ALPHA
-#define GL_CONSTANT_ALPHA 0x8003
-#endif
-#ifndef GL_ONE_MINUS_CONSTANT_ALPHA
-#define GL_ONE_MINUS_CONSTANT_ALPHA 0x8004
-#endif
-
-#ifndef GL_GREATER
-#define GL_GREATER 0x0204
-#endif
-#ifndef GL_EQUAL
-#define GL_EQUAL 0x0202
-#endif
-#ifndef GL_LEQUAL
-#define GL_LEQUAL 0x0203
-#endif
-#ifndef GL_GEQUAL
-#define GL_GEQUAL 0x0206
-#endif
-#ifndef GL_ALWAYS
-#define GL_ALWAYS 0x0207
-#endif
-
-#ifndef GL_TEXTURE_MIN_FILTER
-#define GL_TEXTURE_MIN_FILTER 0x2801
-#endif
-#ifndef GL_TEXTURE_MAG_FILTER
-#define GL_TEXTURE_MAG_FILTER 0x2800
-#endif
-#ifndef GL_TEXTURE_WRAP_S
-#define GL_TEXTURE_WRAP_S 0x2802
-#endif
-#ifndef GL_TEXTURE_WRAP_T
-#define GL_TEXTURE_WRAP_T 0x2803
-#endif
-
-#ifndef GL_NEAREST
-#define GL_NEAREST 0x2600
-#endif
-#ifndef GL_LINEAR
-#define GL_LINEAR 0x2601
-#endif
-#ifndef GL_EXP
-#define GL_EXP 0x0800
-#endif
-#ifndef GL_NEAREST_MIPMAP_LINEAR
-#define GL_NEAREST_MIPMAP_LINEAR 0x2702
-#endif
-
-#ifndef GL_CLAMP
-#define GL_CLAMP 0x2900
-#endif
-#ifndef GL_REPEAT
-#define GL_REPEAT 0x2901
-#endif
-
-#ifndef GL_FOG_START
-#define GL_FOG_START 0x0B63
-#endif
-#ifndef GL_FOG_END
-#define GL_FOG_END 0x0B64
-#endif
-#ifndef GL_FOG_MODE
-#define GL_FOG_MODE 0x0B65
-#endif
-#ifndef GL_FOG_DENSITY
-#define GL_FOG_DENSITY 0x0B62
-#endif
-#ifndef GL_FOG_COLOR
-#define GL_FOG_COLOR 0x0B66
-#endif
-
-#ifndef GL_POSITION
-#define GL_POSITION 0x1203
-#endif
-#ifndef GL_AMBIENT
-#define GL_AMBIENT 0x1200
-#endif
-#ifndef GL_DIFFUSE
-#define GL_DIFFUSE 0x1201
-#endif
-#ifndef GL_SPECULAR
-#define GL_SPECULAR 0x1202
-#endif
-
-#ifndef GL_LIGHT_MODEL_AMBIENT
-#define GL_LIGHT_MODEL_AMBIENT 0x0B53
-#endif
-
-#ifndef GL_LINES
-#define GL_LINES 0x0001
-#endif
-#ifndef GL_LINE_STRIP
-#define GL_LINE_STRIP 0x0003
-#endif
-#ifndef GL_QUADS
-#define GL_QUADS 0x0007
-#endif
-#ifndef GL_TRIANGLE_FAN
-#define GL_TRIANGLE_FAN 0x0006
-#endif
-#ifndef GL_TRIANGLE_STRIP
-#define GL_TRIANGLE_STRIP 0x0005
-#endif
-
-#ifndef GL_RESCALE_NORMAL
-#define GL_RESCALE_NORMAL 0x803A
-#endif
-
-#ifndef GL_BGRA
-#define GL_BGRA 0x80E1
-#endif
-#ifndef GL_RGBA
-#define GL_RGBA 0x1908
-#endif
-
-#ifndef GL_CLAMP_TO_EDGE
-#define GL_CLAMP_TO_EDGE 0x812F
-#endif
-
-// Additional constants from gl_compat2.h
+// Fixed-Function OpenGL constants missing in GLES3
 #ifndef GL_ARRAY_BUFFER
 #define GL_ARRAY_BUFFER 0x8892
 #endif
@@ -318,21 +148,86 @@ struct atomic_ref {
 #ifndef GL_FRAGMENT_SHADER
 #define GL_FRAGMENT_SHADER 0x8B30
 #endif
+#ifndef GL_QUADS
+#define GL_QUADS 0x0007
+#endif
+
+#ifndef GL_MODELVIEW
+#define GL_MODELVIEW 0x1700
+#endif
+#ifndef GL_PROJECTION
+#define GL_PROJECTION 0x1701
+#endif
+#ifndef GL_TEXTURE
+#define GL_TEXTURE 0x1702
+#endif
+
+#ifndef GL_MODELVIEW_MATRIX
+#define GL_MODELVIEW_MATRIX 0x0BA6
+#endif
+#ifndef GL_PROJECTION_MATRIX
+#define GL_PROJECTION_MATRIX 0x0BA7
+#endif
 #ifndef GL_TEXTURE_MATRIX
 #define GL_TEXTURE_MATRIX 0x0BA8
 #endif
 #ifndef GL_MATRIX_MODE
 #define GL_MATRIX_MODE 0x0BA0
 #endif
+
 #ifndef GL_COLOR_MATERIAL
 #define GL_COLOR_MATERIAL 0x0B57
 #endif
 #ifndef GL_NORMALIZE
 #define GL_NORMALIZE 0x0BA1
 #endif
+#ifndef GL_RESCALE_NORMAL
+#define GL_RESCALE_NORMAL 0x803A
+#endif
+
+#ifndef GL_LIGHTING
+#define GL_LIGHTING 0x0B50
+#endif
+#ifndef GL_LIGHT0
+#define GL_LIGHT0 0x4000
+#endif
+#ifndef GL_LIGHT1
+#define GL_LIGHT1 0x4001
+#endif
+
+#ifndef GL_ALPHA_TEST
+#define GL_ALPHA_TEST 0x0BC0
+#endif
+
+#ifndef GL_EXP
+#define GL_EXP 0x0800
+#endif
 #ifndef GL_EXP2
 #define GL_EXP2 0x0801
 #endif
+#ifndef GL_LINEAR
+#define GL_LINEAR 0x2601
+#endif
+
+#ifndef GL_FOG
+#define GL_FOG 0x0B60
+#endif
+#ifndef GL_FOG_MODE
+#define GL_FOG_MODE 0x0B65
+#endif
+#ifndef GL_FOG_DENSITY
+#define GL_FOG_DENSITY 0x0B62
+#endif
+#ifndef GL_FOG_START
+#define GL_FOG_START 0x0B63
+#endif
+#ifndef GL_FOG_END
+#define GL_FOG_END 0x0B64
+#endif
+#ifndef GL_FOG_COLOR
+#define GL_FOG_COLOR 0x0B66
+#endif
+
 #ifndef GL_POLYGON_OFFSET_POINT
 #define GL_POLYGON_OFFSET_POINT 0x2A01
 #endif
@@ -342,6 +237,7 @@ struct atomic_ref {
 #ifndef GL_POLYGON_OFFSET_FILL
 #define GL_POLYGON_OFFSET_FILL 0x8037
 #endif
+
 #ifndef GL_FRONT
 #define GL_FRONT 0x0404
 #endif
@@ -351,6 +247,7 @@ struct atomic_ref {
 #ifndef GL_FRONT_AND_BACK
 #define GL_FRONT_AND_BACK 0x0408
 #endif
+
 #ifndef GL_AMBIENT_AND_DIFFUSE
 #define GL_AMBIENT_AND_DIFFUSE 0x1602
 #endif
@@ -360,11 +257,41 @@ struct atomic_ref {
 #ifndef GL_SHININESS
 #define GL_SHININESS 0x1601
 #endif
+
 #ifndef GL_SMOOTH
 #define GL_SMOOTH 0x1D01
 #endif
 #ifndef GL_FLAT
 #define GL_FLAT 0x1D00
+#endif
+
+#ifndef GL_AMBIENT
+#define GL_AMBIENT 0x1200
+#endif
+#ifndef GL_DIFFUSE
+#define GL_DIFFUSE 0x1201
+#endif
+#ifndef GL_SPECULAR
+#define GL_SPECULAR 0x1202
+#endif
+#ifndef GL_POSITION
+#define GL_POSITION 0x1203
+#endif
+#ifndef GL_LIGHT_MODEL_AMBIENT
+#define GL_LIGHT_MODEL_AMBIENT 0x0B53
+#endif
+
+#ifndef GL_TEXTURE_GEN_S
+#define GL_TEXTURE_GEN_S 0x0C60
+#endif
+#ifndef GL_TEXTURE_GEN_T
+#define GL_TEXTURE_GEN_T 0x0C61
+#endif
+#ifndef GL_TEXTURE_GEN_Q
+#define GL_TEXTURE_GEN_Q 0x0C63
+#endif
+#ifndef GL_TEXTURE_GEN_R
+#define GL_TEXTURE_GEN_R 0x0C62
 #endif
 
 #ifndef GL_LUMINANCE8_ALPHA8
@@ -399,8 +326,10 @@ struct atomic_ref {
 // PlatformRenderer-based implementation (from gl_compat.h)
 // ============================================================================
 
-#include "platform/renderer/IPlatformRenderer.h"
-#include "platform/renderer/renderer.h"
+#ifdef __cplusplus
+
+#include "../IPlatformRenderer.h"
+#include "../renderer.h"
 
 // Undefine and redefine GL functions to use PlatformRenderer
 #undef glNewList
@@ -718,77 +647,4 @@ inline void glReadPixels_4J(int x, int y, int width, int height, int format,
 #define glLightModel(a, b) glLightModel_4J(a, b)
 #define glTexGen(a, b, c) glTexGen_4J(a, b, c)
 
-// ============================================================================
-// Stubs for functions not implemented by PlatformRenderer (from gl_compat2.h)
-// These are only added if they are not already defined as macros or functions.
-// ============================================================================
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// Functions that are not defined in the first file
-static inline void glBegin(GLenum mode) { (void)mode; }
-static inline void glEnd(void) {}
-
-static inline void glVertex2f(float x, float y) { (void)x; (void)y; }
-static inline void glVertex2i(int x, int y) { (void)x; (void)y; }
-static inline void glVertex3f(float x, float y, float z) { (void)x; (void)y; (void)z; }
-static inline void glVertex3d(double x, double y, double z) { (void)x; (void)y; (void)z; }
-static inline void glVertex3fv(const float* v) { (void)v; }
-
-static inline void glNormal3f(float nx, float ny, float nz) { (void)nx; (void)ny; (void)nz; }
-static inline void glNormal3fv(const float* v) { (void)v; }
-static inline void glNormal3b(signed char nx, signed char ny, signed char nz) { (void)nx; (void)ny; (void)nz; }
-
-static inline void glTexCoord2f(float s, float t) { (void)s; (void)t; }
-static inline void glTexCoord2d(double s, double t) { (void)s; (void)t; }
-static inline void glTexCoord2fv(const float* v) { (void)v; }
-
-// glColor3f and glColor4f are macros, so we don't define them here.
-static inline void glColor3ub(unsigned char r, unsigned char g, unsigned char b) { (void)r; (void)g; (void)b; }
-static inline void glColor4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a) { (void)r; (void)g; (void)b; (void)a; }
-static inline void glColor4fv(const float* v) { (void)v; }
-
-static inline void glRectf(float x1, float y1, float x2, float y2) { (void)x1; (void)y1; (void)x2; (void)y2; }
-
-static inline void glClearDepth(double depth) {
-    glClearDepthf((float)depth);
-}
-
-static inline void glColorMaterial(GLenum face, GLenum mode) { (void)face; (void)mode; }
-static inline void glTexGeni(GLenum coord, GLenum pname, int param) { (void)coord; (void)pname; (void)param; }
-static inline void glTexGenfv(GLenum coord, GLenum pname, const float* params) { (void)coord; (void)pname; (void)params; }
-
-// glTexCoordPointer, glNormalPointer, glColorPointer, glVertexPointer are macros, skip.
-
-static inline void glFogfv(GLenum pname, const float* params) { (void)pname; (void)params; }
-static inline void glLightfv(GLenum light, GLenum pname, const float* params) { (void)light; (void)pname; (void)params; }
-static inline void glLightf(GLenum light, GLenum pname, float param) { (void)light; (void)pname; (void)param; }
-static inline void glLighti(GLenum light, GLenum pname, int param) { (void)light; (void)pname; (void)param; }
-static inline void glLightModelfv(GLenum pname, const float* params) { (void)pname; (void)params; }
-static inline void glLightModeli(GLenum pname, int param) { (void)pname; (void)param; }
-static inline void glLightModelf(GLenum pname, float param) { (void)pname; (void)param; }
-static inline void glMaterialfv(GLenum face, GLenum pname, const float* params) { (void)face; (void)pname; (void)params; }
-static inline void glMaterialf(GLenum face, GLenum pname, float param) { (void)face; (void)pname; (void)param; }
-
-// glOrtho is a macro, skip.
-static inline void glFrustum(double l, double r, double b, double t, double zn, double zf) { (void)l; (void)r; (void)b; (void)t; (void)zn; (void)zf; }
-
-// glPushMatrix, glPopMatrix, glLoadIdentity, glMatrixMode, glTranslatef, glRotatef, glScalef, glScaled are macros, skip.
-static inline void glTranslated(double x, double y, double z) { (void)x; (void)y; (void)z; }
-static inline void glRotated(double angle, double x, double y, double z) { (void)angle; (void)x; (void)y; (void)z; }
-static inline void glLoadMatrixf(const float* m) { (void)m; }
-static inline void glLoadMatrixd(const double* m) { (void)m; }
-// glMultMatrixf is a macro, skip.
-static inline void glMultMatrixd(const double* m) { (void)m; }
-
-static inline void glEnableClientState(GLenum array) { (void)array; }
-static inline void glDisableClientState(GLenum array) { (void)array; }
-// glClientActiveTexture is a macro, skip.
-
-// glGenLists, glNewList, glCallList, glDeleteLists are macros, skip.
-
-#ifdef __cplusplus
-}
-#endif
+#endif // __cplusplus
