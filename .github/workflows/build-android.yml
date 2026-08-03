@@ -2,7 +2,7 @@ name: Build Android
 
 on:
   push:
-    branches: [ main, master, "feat/*" ]
+    branches: [ root, main, master, "feat/*" ]
   workflow_dispatch:
 
 jobs:
