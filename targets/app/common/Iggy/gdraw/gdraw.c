@@ -1,4 +1,3 @@
-
 #define GDRAW_ASSERTS
 
 #include "gdraw.h"
@@ -165,6 +164,14 @@ typedef void(APIENTRY* PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC)(GLenum, GLsizei,
 
 #include "SDL_video.h"
 #include "app/common/Iggy/include/iggy.h"
+
+#ifndef APIENTRY
+#ifdef GL_APIENTRY
+#define APIENTRY GL_APIENTRY
+#else
+#define APIENTRY
+#endif
+#endif
 
 #ifndef _ENABLEIGGY
 void* IggyGDrawMallocAnnotated(SINTa size, const char* file, int line) {
