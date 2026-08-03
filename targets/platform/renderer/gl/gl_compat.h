@@ -322,6 +322,16 @@ static inline void glDeleteLists(GLuint list, int range) { (void)list; (void)ran
 #define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT 0x83F3
 #endif
 
+#ifndef GL_CLAMP
+#define GL_CLAMP 0x2900
+#endif
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+#ifndef GL_BGRA
+#define GL_BGRA 0x80E1
+#endif
+
 // ============================================================================
 // PlatformRenderer-based implementation (from gl_compat.h)
 // ============================================================================
