@@ -1,0 +1,5 @@
+Name: glesv2
+Description: OpenGL ES v2/v3 for Android NDK
+Version: 3.0
+Libs: -lGLESv3 -lGLESv2 -lEGL -llog
+Cflags:

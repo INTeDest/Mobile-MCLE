@@ -1,0 +1,5 @@
+Name: zlib
+Description: zlib for Android NDK
+Version: 1.3
+Libs: -lz
+Cflags:

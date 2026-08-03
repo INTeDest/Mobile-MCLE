@@ -46,17 +46,7 @@ if [ ! -d "sdl_install" ]; then
 fi
 
 # ================= 4. НАСТРОЙКА PKG-CONFIG =================
-mkdir -p android_pkgconfig
-
-cat <<EOF > android_pkgconfig/zlib.pc
-Name: zlib
-Description: zlib for Android NDK
-Version: 1.3
-Libs: -lz
-Cflags:
-EOF
-
-export PKG_CONFIG_PATH="$(pwd)/sdl_install/lib/pkgconfig:$(pwd)/android_pkgconfig"
+export PKG_CONFIG_PATH="$(pwd)/sdl_install/lib/pkgconfig:$(pwd)/scripts/android_pkgconfig"
 
 # ================= 5. СБОРКА C++ ЧАСТИ С MESON =================
 rm -rf build-android
@@ -69,7 +59,7 @@ meson setup build-android \
 meson compile -C build-android
 
 # ================= 6. ПОДГОТОВКА APK РАБОЧЕЙ ОБЛАСТИ =================
-rm -rf apk_workspace app-unsigned.apk 4jcraft-debug.apk
+rm -rf apk_workspace app-unsigned.apk debug.apk
 mkdir -p apk_workspace/{lib/$ARCH,assets,java_src,obj,dex}
 
 # Нативные библиотеки
