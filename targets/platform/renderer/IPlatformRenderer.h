@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "platform/PlatformTypes.h"
+#include "../PlatformTypes.h"
 
 class IPlatformRenderer {
 public:
