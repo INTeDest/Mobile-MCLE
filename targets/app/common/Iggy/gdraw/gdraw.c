@@ -271,7 +271,7 @@ static void load_extensions(void) {
 #if defined(__ANDROID__) || defined(GLES) || defined(GDRAW_GLES)
     gdraw_real_vtxattrib = glVertexAttribPointer;
     gdraw_real_createshader = glCreateShader;
-    gdraw_real_shadersource = glShaderSource;
+    gdraw_real_shadersource = (gdraw_shadersource_fn)glShaderSource;
     gdraw_real_compileshader = glCompileShader;
     gdraw_real_linkprogram = glLinkProgram;
     gdraw_real_teximage2d = glTexImage2D;
