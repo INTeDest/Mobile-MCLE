@@ -30,35 +30,17 @@ public class MainActivity extends SDLActivity {
                 }
             }
 
-            // 3. Создаем символические ссылки для поддержки кроссплатформенных путей C++ кода
+            // 3. Создаем символические ссылки для поддержки кроссплатформенных путей C++ кода.
+            // Напрямую нацеливаемся на оригинальный MediaWindows64.arc во избежание рекурсивных петель линковки.
             File mediaDir = new File(targetDir, "Common/Media");
             if (mediaDir.exists()) {
-                File[] arcFiles = mediaDir.listFiles();
-                if (arcFiles != null) {
-                    for (File arcFile : arcFiles) {
-                        if (arcFile.getName().endsWith(".arc")) {
-                            String target = arcFile.getAbsolutePath();
-                            
-                            createSymlink(target, new File(targetDir, "Common/Media/MediaWindows64.arc").getAbsolutePath());
-                            createSymlink(target, new File(targetDir, "Common/Media/MediaLinux.arc").getAbsolutePath());
-                            createSymlink(target, new File(targetDir, "app/common/Media/MediaWindows64.arc").getAbsolutePath());
-                            createSymlink(target, new File(targetDir, "app/common/Media/MediaLinux.arc").getAbsolutePath());
-                        }
-                    }
-                }
-            }
-
-            // 4. Также делаем линки, если .arc файлы лежали в корне files/
-            File[] rootFiles = targetDir.listFiles();
-            if (rootFiles != null) {
-                for (File file : rootFiles) {
-                    if (file.getName().endsWith(".arc")) {
-                        String target = file.getAbsolutePath();
-                        createSymlink(target, new File(targetDir, "Common/Media/MediaWindows64.arc").getAbsolutePath());
-                        createSymlink(target, new File(targetDir, "Common/Media/MediaLinux.arc").getAbsolutePath());
-                        createSymlink(target, new File(targetDir, "app/common/Media/MediaWindows64.arc").getAbsolutePath());
-                        createSymlink(target, new File(targetDir, "app/common/Media/MediaLinux.arc").getAbsolutePath());
-                    }
+                File realArc = new File(mediaDir, "MediaWindows64.arc");
+                if (realArc.exists()) {
+                    String target = realArc.getAbsolutePath();
+                    
+                    createSymlink(target, new File(targetDir, "Common/Media/MediaLinux.arc").getAbsolutePath());
+                    createSymlink(target, new File(targetDir, "app/common/Media/MediaWindows64.arc").getAbsolutePath());
+                    createSymlink(target, new File(targetDir, "app/common/Media/MediaLinux.arc").getAbsolutePath());
                 }
             }
             

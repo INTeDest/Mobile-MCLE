@@ -83,104 +83,8 @@ if [ -f "MainActivity.java" ]; then
 elif [ -f "android/src/x/intedest/mlce/MainActivity.java" ]; then
     cp android/src/x/intedest/mlce/MainActivity.java apk_workspace/java_src/x/intedest/mlce/
 else
-    # Создаем резервный MainActivity.java, если файл потерялся
-    cat << 'EOF' > apk_workspace/java_src/x/intedest/mlce/MainActivity.java
-package x.intedest.mlce;
-
-import org.libsdl.app.SDLActivity;
-import android.os.Bundle;
-import android.content.res.AssetManager;
-import android.util.Log;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-
-public class MainActivity extends SDLActivity {
-    private static final String TAG = "MLCE";
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        File targetDir = getFilesDir();
-        try {
-            copyAssetFolder(getAssets(), "Common", targetDir.getAbsolutePath() + "/Common");
-            
-            String[] files = getAssets().list("");
-            if (files != null) {
-                for (String file : files) {
-                    if (file.endsWith(".arc") || file.endsWith(".json") || file.endsWith(".txt")) {
-                        copyAssetFile(getAssets(), file, targetDir.getAbsolutePath() + "/" + file);
-                    }
-                }
-            }
-            
-            System.setProperty("user.dir", targetDir.getAbsolutePath());
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to prepare assets", e);
-        }
-
-        super.onCreate(savedInstanceState);
-    }
-
-    private static void copyAssetFolder(AssetManager am, String from, String to) throws IOException {
-        File toDir = new File(to);
-        if (!toDir.exists()) {
-            toDir.mkdirs();
-        }
-        String[] files = am.list(from);
-        if (files == null) return;
-
-        for (int i = 0; i < files.length; i++) {
-            String file = files[i];
-            String assetFile = from.isEmpty() ? file : from + "/" + file;
-            String destFile = to + "/" + file;
-            String[] subFiles = am.list(assetFile);
-
-            if (subFiles != null && subFiles.length > 0) {
-                copyAssetFolder(am, assetFile, destFile);
-            } else {
-                copyAssetFile(am, assetFile, destFile);
-            }
-        }
-    }
-
-    private static void copyAssetFile(AssetManager am, String fromAssetPath, String toPath) throws IOException {
-        File outFile = new File(toPath);
-        if (outFile.exists() && outFile.length() > 0) {
-            return;
-        }
-
-        InputStream in = null;
-        OutputStream out = null;
-        try {
-            in = am.open(fromAssetPath);
-            out = new FileOutputStream(outFile);
-            byte[] buffer = new byte[16384];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-        } finally {
-            if (in != null) {
-                try { in.close(); } catch (IOException e) {}
-            }
-            if (out != null) {
-                try { out.close(); } catch (IOException e) {}
-            }
-        }
-    }
-
-    @Override
-    protected String[] getLibraries() {
-        return new String[] {
-            "c++_shared",
-            "SDL2",
-            "main"
-        };
-    }
-}
-EOF
+    echo "MainActivity not found"
+    return 1
 fi
 
 # Копируем из android/src если папка существует
@@ -205,36 +109,8 @@ if [ -f "AndroidManifest.xml" ]; then
 elif [ -f "android/AndroidManifest.xml" ]; then
     cp android/AndroidManifest.xml "$MANIFEST"
 else
-    # Генерируем резервный AndroidManifest.xml, если он потерялся
-    cat << 'EOF' > "$MANIFEST"
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="x.intedest.mlce"
-    android:versionCode="1"
-    android:versionName="0.1.0">
-
-    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
-    <uses-permission android:name="android.permission.INTERNET"/>
-
-    <application
-        android:allowBackup="true"
-        android:label="@string/app_name"
-        android:hasFragileUserData="false"
-        android:hardwareAccelerated="true">
-
-        <activity android:name="x.intedest.mlce.MainActivity"
-                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-                  android:screenOrientation="landscape"
-                  android:configChanges="keyboardHidden|orientation|screenSize"
-                  android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>
-EOF
+    echo "Manifest not found."
+    return 1
 fi
 
 # Настройка ресурсов (папка res)
@@ -249,12 +125,8 @@ fi
 
 # Если strings.xml все еще отсутствует, создаем дефолтный, чтобы AAPT не ругался на @string/app_name
 if [ ! -f "$RES_DIR/values/strings.xml" ]; then
-    cat << 'EOF' > "$RES_DIR/values/strings.xml"
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">Native MLCE</string>
-</resources>
-EOF
+    echo "strings not found"
+    return 1
 fi
 
 # Упаковываем ассеты и ресурсы
