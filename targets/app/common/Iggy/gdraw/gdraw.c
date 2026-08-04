@@ -945,3 +945,100 @@ void gdraw_GL_CalculateCustomDraw_4J(IggyCustomDrawCallbackRegion* region,
                                      F32* matrix) {
     gdraw_GetObjectSpaceMatrix(matrix, region->o2w, gdraw->projection, 0.0f, 0);
 }
+
+// FIX: Переопределяем MakeTextureFromResource, чтобы не писать в Read-Only mmap память (.arc файлы)
+GDrawTexture* RADLINK gdraw_GLx_(MakeTextureFromResource)(
+    U8* resource_file, S32 len, IggyFileTextureRaw* texture) {
+    int i, offset, mips;
+    const TextureFormatDesc* fmt;
+    GDrawTexture* tex;
+    GLuint gl_texture_handle;
+
+    fmt = gdraw->tex_formats;
+    while (fmt->iggyfmt != texture->format && fmt->blkbytes) fmt++;
+    if (!fmt->blkbytes) return NULL;
+
+    glGenTextures(1, &gl_texture_handle);
+    if (gl_texture_handle == 0) return NULL;
+
+    opengl_check();
+    make_texture(gl_texture_handle);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    offset = texture->file_offset;
+    mips = RR_MAX(texture->mipmaps, 1);
+
+    if (gdraw->has_conditional_non_power_of_two)
+        if (!is_pow2(texture->w) || !is_pow2(texture->h)) mips = 1;
+
+    if (!gdraw->has_texture_max_level && mips > 1) {
+        int lastmip = mips - 1;
+        if ((texture->w >> lastmip) > 1 || (texture->h >> lastmip) > 1)
+            mips = 1;
+    }
+
+    for (i = 0; i < mips; i++) {
+        U8* data = resource_file + offset;
+        int w = RR_MAX(texture->w >> i, 1);
+        int h = RR_MAX(texture->h >> i, 1);
+        int j;
+        U8* upload_data = data;
+        U8* temp_buffer = NULL;
+
+        // Если нам нужно поменять байты местами, делаем это в копии буфера, а не прямо в mmap памяти!
+        if (texture->format == IFT_FORMAT_rgba_4444_LE || texture->format == IFT_FORMAT_rgba_5551_LE) {
+            int size = w * h * 2;
+            temp_buffer = (U8*)malloc(size);
+            if (temp_buffer) {
+                memcpy(temp_buffer, data, size);
+                upload_data = temp_buffer;
+
+                if (texture->format == IFT_FORMAT_rgba_4444_LE) {
+                    for (j = 0; j < w * h; ++j) {
+                        unsigned short x = *(unsigned short*)(upload_data + j * 2);
+                        x = ((x >> 12) & 0xf) | ((x << 4) & 0xfff0);
+                        *(unsigned short*)(upload_data + j * 2) = x;
+                    }
+                }
+                if (texture->format == IFT_FORMAT_rgba_5551_LE) {
+                    for (j = 0; j < w * h; ++j) {
+                        unsigned short x = *(unsigned short*)(upload_data + j * 2);
+                        x = (x >> 15) | (x << 1);
+                        *(unsigned short*)(upload_data + j * 2) = x;
+                    }
+                }
+            }
+        }
+
+        if (fmt->fmt != 0) {
+            glTexImage2D(GL_TEXTURE_2D, i, fmt->intfmt, w, h, 0, fmt->fmt,
+                         fmt->type, upload_data);
+            offset += w * h * fmt->blkbytes;
+        } else {
+            int size = ((w + fmt->blkx - 1) / fmt->blkx) *
+                       ((h + fmt->blky - 1) / fmt->blky) * fmt->blkbytes;
+            glCompressedTexImage2D(GL_TEXTURE_2D, i, fmt->intfmt, w, h, 0, size,
+                                   upload_data);
+            offset += size;
+        }
+
+        if (temp_buffer) {
+            free(temp_buffer);
+        }
+
+        opengl_check();
+    }
+
+    if (gdraw->has_texture_max_level)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, mips - 1);
+
+    tex = gdraw_GLx_(WrappedTextureCreate)(gl_texture_handle, texture->w,
+                                           texture->h, mips > 1);
+    if (tex == NULL) glDeleteTextures(1, &gl_texture_handle);
+    opengl_check();
+    return tex;
+}
+
+void RADLINK gdraw_GLx_(DestroyTextureFromResource)(GDrawTexture* tex) {
+    if (tex) gdraw_GLx_(WrappedTextureDestroy)(tex);
+}
