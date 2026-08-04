@@ -15,6 +15,7 @@
 /scripts/__pycache__/
 !/.clang-format
 !/.git-blame-ignore-revs
+!/android/
 !/.gitattributes
 !/.gitignore
 !/.gitmodules
