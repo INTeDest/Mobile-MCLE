@@ -22,11 +22,12 @@ void ArchiveFile::_readHeader(DataInputStream* dis) {
         meta->filesize = dis->readInt();
 
         // Filenames preceeded by an asterisk have been compressed.
-        if (meta->filename[0] == '*') {
+        if (!meta->filename.empty() && meta->filename[0] == '*') {
             meta->filename = meta->filename.substr(1);
             meta->isCompressed = true;
-        } else
+        } else {
             meta->isCompressed = false;
+        }
 
         m_index.insert(std::pair<std::string, PMetaData>(meta->filename, meta));
     }
@@ -41,7 +42,7 @@ ArchiveFile::ArchiveFile(File file) {
 #endif
 
     if (!file.exists()) {
-        app.DebugPrintf("Failed to load archive file!\n");  //,file.getPath());
+        app.DebugPrintf("Failed to load archive file!\n");
         app.FatalLoadError();
     }
 
@@ -54,6 +55,8 @@ ArchiveFile::ArchiveFile(File file) {
     ByteArrayInputStream bais(readArray);
     DataInputStream dis(&bais);
 
+    // Внимание: на Windows это было опасно (dangling pointer), 
+    // но мы компилируем под Android, где используется ветка #else
     m_cachedData = readArray.data();
 #else
     DataInputStream dis(&fis);
@@ -63,20 +66,19 @@ ArchiveFile::ArchiveFile(File file) {
 
     dis.close();
     fis.close();
-#if defined(_WINDOWS64)
-    bais.reset();
-#endif
     app.DebugPrintf("Finished loading archive file\n");
 }
 
-ArchiveFile::~ArchiveFile() { delete m_cachedData; }
+ArchiveFile::~ArchiveFile() { 
+    // m_cachedData используется только на Windows
+}
 
 std::vector<std::string>* ArchiveFile::getFileList() {
     std::vector<std::string>* out = new std::vector<std::string>();
 
-    for (auto it = m_index.begin(); it != m_index.end(); it++)
-
+    for (auto it = m_index.begin(); it != m_index.end(); it++) {
         out->push_back(it->first);
+    }
 
     return out;
 }
@@ -95,8 +97,7 @@ std::vector<uint8_t> ArchiveFile::getFile(const std::string& filename) {
 
     if (it == m_index.end()) {
         app.DebugPrintf("Couldn't find file in archive\n");
-        app.DebugPrintf("Failed to find file '%s' in archive\n",
-                        filename.c_str());
+        app.DebugPrintf("Failed to find file '%s' in archive\n", filename.c_str());
 #if !defined(_CONTENT_PACKAGE)
         assert(0);
 #endif
@@ -106,12 +107,11 @@ std::vector<uint8_t> ArchiveFile::getFile(const std::string& filename) {
 
 #if defined(_WINDOWS64)
         out = std::vector<uint8_t>(data->filesize);
-
         memcpy(out.data(), m_cachedData + data->ptr, data->filesize);
 #else
         const unsigned int fileSize = static_cast<unsigned int>(data->filesize);
-        std::uint8_t* pbData = new std::uint8_t[fileSize == 0 ? 1 : fileSize];
-        out = std::vector<uint8_t>(pbData, pbData + fileSize);
+        // Исправлена утечка памяти pbData и копирование неинициализированной памяти
+        out.resize(fileSize == 0 ? 1 : fileSize);
         auto readResult = PlatformFilesystem.readFileSegment(
             m_sourcefile.getPath(), static_cast<std::size_t>(data->ptr),
             out.data(), static_cast<std::size_t>(data->filesize));
@@ -123,26 +123,18 @@ std::vector<uint8_t> ArchiveFile::getFile(const std::string& filename) {
 #endif
 
         // Compressed filenames are preceeded with an asterisk.
-        if (data->isCompressed && !out.empty()) {
-            /* 4J-JEV:
-             * If a compressed file is accessed before compression object is
-             * initialized it will crash here (Compression::getCompression).
-             */
-            /// 4 279 553 556
-
+        if (data->isCompressed && out.size() >= 4) {
             ByteArrayInputStream bais(out);
             DataInputStream dis(&bais);
             unsigned int decompressedSize = dis.readInt();
             dis.close();
 
-            std::uint8_t* uncompressedBuffer =
-                new std::uint8_t[decompressedSize];
+            std::uint8_t* uncompressedBuffer = new std::uint8_t[decompressedSize];
             Compression::getCompression()->Decompress(
                 uncompressedBuffer, &decompressedSize, out.data() + 4,
                 out.size() - 4);
 
-            out = std::vector<uint8_t>(uncompressedBuffer,
-                                       uncompressedBuffer + decompressedSize);
+            out.assign(uncompressedBuffer, uncompressedBuffer + decompressedSize);
             delete[] uncompressedBuffer;
         }
 

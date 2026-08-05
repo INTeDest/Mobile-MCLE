@@ -18,11 +18,12 @@ ArchiveManager::ArchiveManager()
 void ArchiveManager::loadMediaArchive() {
     std::string mediapath = "";
 
-    mediapath = "Common\\Media\\MediaWindows64.arc";
+    // Используем кроссплатформенные слеши вместо Windows-специфичных бэкслешей
+    mediapath = "Common/Media/MediaWindows64.arc";
 
     if (!mediapath.empty()) {
         std::string exeDirW = PlatformFilesystem.getBasePath().string();
-        std::string candidate = exeDirW + File::pathSeparator + mediapath;
+        std::string candidate = exeDirW + "/" + mediapath;
         if (File(candidate).exists()) {
             m_mediaArchive = new ArchiveFile(File(candidate));
         } else {

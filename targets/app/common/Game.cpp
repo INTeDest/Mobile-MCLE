@@ -19,6 +19,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 #include "app/common/App_structs.h"
 #include "app/common/Audio/SoundEngine.h"
 #include "app/common/DLC/DLCManager.h"
@@ -145,24 +149,32 @@ Game::Game() {
 
 void Game::DebugPrintf(const char* szFormat, ...) {
 #if !defined(_FINAL_BUILD)
-    char buf[1024];
+    char buf[2048];
     va_list ap;
     va_start(ap, szFormat);
     vsnprintf(buf, sizeof(buf), szFormat, ap);
     va_end(ap);
+#if defined(__ANDROID__)
+    __android_log_print(ANDROID_LOG_INFO, "MLCE_DEBUG", "%s", buf);
+#else
     fputs(buf, stderr);
+#endif
 #endif
 }
 
 void Game::DebugPrintf(int user, const char* szFormat, ...) {
 #if !defined(_FINAL_BUILD)
     if (user == USER_NONE) return;
-    char buf[1024];
+    char buf[2048];
     va_list ap;
     va_start(ap, szFormat);
     vsnprintf(buf, sizeof(buf), szFormat, ap);
     va_end(ap);
+#if defined(__ANDROID__)
+    __android_log_print(ANDROID_LOG_INFO, "MLCE_DEBUG", "[User %d] %s", user, buf);
+#else
     fputs(buf, stderr);
+#endif
     if (user == USER_UI) {
         ui.logDebugString(buf);
     }
@@ -262,42 +274,6 @@ int Game::GetLocalPlayerCount(void) {
 #define CONTENT_DATA_DISPLAY_NAME(a) (a.szDisplayName)
 
 #undef CONTENT_DATA_DISPLAY_NAME
-
-//  void Game::InstallDefaultCape()
-//  {
-// 	 if(!m_bDefaultCapeInstallAttempted)
-// 	 {
-// 		 // we only attempt to install the cape once per launch of the
-// game 		 m_bDefaultCapeInstallAttempted=true;
-//
-// 		 std::string wTemp="Default_Cape.png";
-// 		 bool bRes=app.IsFileInMemoryTextures(wTemp);
-// 		 // if the file is not already in the memory textures, then read
-// it from TMS 		 if(!bRes)
-// 		 {
-// 			 std::uint8_t *pBuffer=nullptr;
-// 			 std::uint32_t dwSize=0;
-// 			 // 4J-PB - out for now for DaveK so he doesn't get the
-// birthday cape #ifdef _CONTENT_PACKAGE
-// IPlatformStorage::ETMSStatus eTMSStatus;
-// 			 eTMSStatus=PlatformStorage.ReadTMSFile(PlatformProfile.GetPrimaryPad(),IPlatformStorage::eGlobalStorage_Title,IPlatformStorage::eTMS_FileType_Graphic,
-// "Default_Cape.png",&pBuffer, &dwSize);
-// 			 if(eTMSStatus==IPlatformStorage::ETMSStatus_Idle)
-// 			 {
-// 				 app.AddMemoryTextureFile(wTemp,pBuffer,dwSize);
-// 			 }
-// #endif
-// 		 }
-// 	 }
-//  }
-
-//  int Game::DLCReadCallback(void*
-//  pParam,IPlatformStorage::DLC_FILE_DETAILS *pDLCData)
-//  {
-//
-//
-// 	 return 0;
-//  }
 
 //-------------------------------------------------------------------------------------
 // Name: InitTime()
@@ -487,29 +463,6 @@ MOJANG_DATA* Game::GetMojangDataForXuid(PlayerUID xuid) {
 
 int32_t Game::RegisterConfigValues(char* pType, int iValue) {
     int32_t hr = 0;
-
-    // #ifdef 0
-    // 	if(pType!=nullptr)
-    // 	{
-    // 		if(strcmp(pType,"XboxOneTransfer")==0)
-    // 		{
-    // 			if(iValue>0)
-    // 			{
-    // 				app.m_bTransferSavesToXboxOne=true;
-    // 			}
-    // 			else
-    // 			{
-    // 				app.m_bTransferSavesToXboxOne=false;
-    // 			}
-    // 		}
-    // 		else if(strcmp(pType,"TransferSlotCount")==0)
-    // 		{
-    // 			app.m_uiTransferSlotC=iValue;
-    // 		}
-    //
-    // 	}
-    // #endif
-
     return hr;
 }
 
@@ -541,27 +494,6 @@ bool Game::IsLocalMultiplayerAvailable() {
     bool available = PlatformRenderer.IsHiDef() && connectedControllers > 1;
 
     return available;
-
-    // Found this in GameNetworkManager?
-    // #ifdef 0
-    //		iOtherConnectedControllers =
-    // PlatformInput.GetConnectedGamepadCount();
-    //		if((PlatformInput.IsPadConnected(userIndex) ||
-    // PlatformProfile.IsSignedIn(userIndex)))
-    //		{
-    //			--iOtherConnectedControllers;
-    //		}
-    // #else
-    //		for(unsigned int i = 0; i < XUSER_MAX_COUNT; ++i)
-    //		{
-    //			if( (i!=userIndex) && (PlatformInput.IsPadConnected(i)
-    //||
-    // PlatformProfile.IsSignedIn(i)) )
-    //			{
-    //				iOtherConnectedControllers++;
-    //			}
-    //		}
-    // #endif
 }
 
 // 4J-PB - language and locale function
@@ -580,25 +512,13 @@ std::string Game::getFilePath(std::uint32_t packId, std::string filename,
 }
 
 enum ETitleUpdateTexturePacks {
-    // eTUTP_MassEffect = 0x400,
-    // eTUTP_Skyrim = 0x401,
-    // eTUTP_Halo = 0x402,
-    // eTUTP_Festive = 0x405,
-
-    // eTUTP_Plastic = 0x801,
-    // eTUTP_Candy = 0x802,
-    // eTUTP_Fantasy = 0x803,
     eTUTP_Halloween = 0x804,
-    // eTUTP_Natural = 0x805,
-    // eTUTP_City = 0x01000806, // 4J Stu - The released City pack had a
-    // sub-pack ID eTUTP_Cartoon = 0x807, eTUTP_Steampunk = 0x01000808, // 4J
-    // Stu - The released Steampunk pack had a sub-pack ID
 };
 
 #if defined(_WINDOWS64)
-std::string titleUpdateTexturePackRoot = "Windows64\\DLC\\";
+std::string titleUpdateTexturePackRoot = "Windows64/DLC/";
 #else
-std::string titleUpdateTexturePackRoot = "CU\\DLC\\";
+std::string titleUpdateTexturePackRoot = "CU/DLC/";
 #endif
 
 std::string Game::getRootPath(std::uint32_t packId, bool allowOverride,
@@ -617,9 +537,9 @@ std::string Game::getRootPath(std::uint32_t packId, bool allowOverride,
     }
 
     if (bAddDataFolder) {
-        return path + "\\Data\\";
+        return path + "/Data/";
     } else {
-        return path + "\\";
+        return path + "/";
     }
 }
 
