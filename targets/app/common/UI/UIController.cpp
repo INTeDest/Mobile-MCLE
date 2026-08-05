@@ -266,6 +266,24 @@ void UIController::SetupFont() {
         delete m_mcTTFFont;
         m_mcTTFFont = nullptr;
     }
+    if (m_eTargetFont == eFont_Bitmap) {
+        // КРИТИЧЕСКАЯ ДИАГНОСТИКА: Проверяем, жива ли глобальная структура Mojangles_7
+        app.DebugPrintf("[UIController] Diagnostics: SFontData::Mojangles_7 address = %p\n", (void*)&SFontData::Mojangles_7);
+        app.DebugPrintf("[UIController] Diagnostics: m_strFontName = %s\n", SFontData::Mojangles_7.m_strFontName.c_str());
+        app.DebugPrintf("[UIController] Diagnostics: m_uiGlyphCount = %u\n", SFontData::Mojangles_7.m_uiGlyphCount);
+        app.DebugPrintf("[UIController] Diagnostics: m_uiGlyphMapX = %u\n", SFontData::Mojangles_7.m_uiGlyphMapX);
+        app.DebugPrintf("[UIController] Diagnostics: m_uiGlyphMapY = %u\n", SFontData::Mojangles_7.m_uiGlyphMapY);
+        app.DebugPrintf("[UIController] Diagnostics: m_uiGlyphWidth = %hu\n", SFontData::Mojangles_7.m_uiGlyphWidth);
+        app.DebugPrintf("[UIController] Diagnostics: m_uiGlyphHeight = %hu\n", SFontData::Mojangles_7.m_uiGlyphHeight);
+
+        if (m_moj7 == nullptr)
+            m_moj7 = new UIBitmapFont(SFontData::Mojangles_7);
+        if (m_moj11 == nullptr)
+            m_moj11 = new UIBitmapFont(SFontData::Mojangles_11);
+
+        m_moj7->registerFont();
+        m_moj11->registerFont();
+    }
 
     if (m_eTargetFont == eFont_Bitmap) {
         if (m_moj7 == nullptr)

@@ -1,5 +1,3 @@
-
-
 // GDraw GL backend for Linux
 #include "ConsoleUIController.h"
 
@@ -14,6 +12,7 @@
 #include "app/common/Game.h"
 #include "app/common/Iggy/include/gdraw.h"
 #include "app/common/Iggy/include/rrCore.h"
+#include "UIFontData.h"
 
 ConsoleUIController ui;
 
@@ -127,7 +126,6 @@ void ConsoleUIController::setTileOrigin(S32 xPos, S32 yPos) {
 }
 
 GDrawTexture* ConsoleUIController::getSubstitutionTexture(int textureId) {
-    // todo impl
     return nullptr;
 }
 
