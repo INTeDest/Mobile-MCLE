@@ -251,10 +251,10 @@ int SparseDataStorage::setDataRegion(std::vector<uint8_t>& dataIn, int x0,
     return (int)count;
 }
 
-bool SparseDataStorage::testSetDataRegion(std::vector<uint8_t>& dataIn,
+bool SparseDataStorage::testSetDataRegion(const std::vector<uint8_t>& dataIn,
                                               int x0, int y0, int z0, int x1,
                                               int y1, int z1, int offset) {
-    unsigned char* pucIn = &dataIn.data()[offset];
+    const unsigned char* pucIn = &dataIn.data()[offset];
     for (int x = x0; x < x1; x++) {
         for (int z = z0; z < z1; z++) {
             for (int y = y0; y < y1; y++) {
