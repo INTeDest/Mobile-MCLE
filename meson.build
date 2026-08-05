@@ -7,7 +7,7 @@ project(
     meson_version: '>= 1.3',
     default_options: [
         'cpp_std=c++20',
-        'warning_level=0',
+        'warning_level=2', # Повысили строгость с 0 до 2 (-Wall -Wextra)
         'unity=on',
         'unity_size=8',
         'buildtype=debug',
@@ -16,6 +16,38 @@ project(
         'default_library=static',
     ],
 )
+
+cc = meson.get_compiler('cpp')
+c_cc = meson.get_compiler('c')
+
+# Сделаем компилятор максимально строгим к потенциально опасным багам в C++ и C.
+# Эти предупреждения станут жесткими ошибками (Error) и прервут компиляцию при нахождении косяка.
+strict_cpp_warning_flags = [
+    '-Werror=return-type',
+    '-Werror=uninitialized',
+    '-Werror=init-self',
+]
+
+strict_c_warning_flags = [
+    '-Werror=implicit-function-declaration',
+    '-Werror=incompatible-pointer-types',
+]
+
+if cc.get_id() != 'msvc'
+    foreach flag : strict_cpp_warning_flags
+        if cc.has_argument(flag)
+            add_project_arguments(flag, language: ['cpp', 'c'])
+        endif
+    endforeach
+endif
+
+if c_cc.get_id() != 'msvc'
+    foreach flag : strict_c_warning_flags
+        if c_cc.has_argument(flag)
+            add_project_arguments(flag, language: 'c')
+        endif
+    endforeach
+endif
 
 if host_machine.system() == 'android' or get_option('renderer') == 'gles'
     meson.override_dependency('glew', declare_dependency())
@@ -38,8 +70,6 @@ endif
 
 pymod = import('python')
 python = pymod.find_installation('python3', required: true)
-
-cc = meson.get_compiler('cpp')
 
 global_cpp_args = []
 global_cpp_defs = [
